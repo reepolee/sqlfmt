@@ -31,8 +31,9 @@ enum Token {
 static KEYWORDS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
     [
         "ACCESSIBLE", "ADD", "ALL", "ALTER", "ANALYZE", "AND", "AS", "ASC", "ASENSITIVE",
+        "AUTO_INCREMENT",
         "BEFORE", "BETWEEN", "BIGINT", "BINARY", "BLOB", "BOTH", "BY", "CALL", "CASCADE",
-        "CASE", "CHANGE", "CHAR", "CHARACTER", "CHECK", "COLLATE", "COLUMN", "CONDITION",
+        "CASE", "CHANGE", "CHAR", "CHARACTER", "CHECK", "COLLATE", "COLUMN", "COMMENT", "CONDITION",
         "CONSTRAINT", "CONTINUE", "CONVERT", "CREATE", "CROSS", "CUBE", "CUME_DIST",
         "CURRENT_DATE", "CURRENT_TIME", "CURRENT_TIMESTAMP", "CURRENT_USER", "CURSOR",
         "DATABASE", "DATABASES", "DAY_HOUR", "DAY_MICROSECOND", "DAY_MINUTE",
@@ -62,12 +63,16 @@ static KEYWORDS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
         "SET", "SHOW", "SIGNAL", "SMALLINT", "SPATIAL", "SPECIFIC", "SQL",
         "SQLEXCEPTION", "SQLSTATE", "SQLWARNING", "SQL_BIG_RESULT",
         "SQL_CALC_FOUND_ROWS", "SQL_SMALL_RESULT", "SSL", "STARTING", "STORED",
-        "STRAIGHT_JOIN", "SYSTEM", "TABLE", "TERMINATED", "THEN", "TINYBLOB",
+        "STRAIGHT_JOIN", "SYSTEM", "TABLE", "TERMINATED", "THEN",        "TEXT", "TIME", "TIMESTAMP", "TINYBLOB",
         "TINYINT", "TINYTEXT", "TO", "TRAILING", "TRIGGER", "TRUE", "UNDO", "UNION",
         "UNIQUE", "UNLOCK", "UNSIGNED", "UPDATE", "USAGE", "USE", "USING",
-        "UTC_DATE", "UTC_TIME", "UTC_TIMESTAMP", "VALUES", "VARBINARY", "VARCHAR",
-        "VARCHARACTER", "VARYING", "VIRTUAL", "VIEW", "WHEN", "WHERE", "WHILE",
-        "WINDOW", "WITH", "WRITE", "XOR", "YEAR_MONTH", "ZEROFILL",
+        "UTC_DATE", "UTC_TIME", "UTC_TIMESTAMP", "VALUES",        "VARBINARY", "VARCHAR",
+        "VARCHARACTER", "VARYING", "VIRTUAL", "VIEW",
+        "YEAR",
+        "WHEN", "WHERE", "WHILE",
+        "WINDOW", "WITH", "WRITE", "XOR", "YEAR_MONTH",        // Common data types
+        "BIT", "BOOL", "BOOLEAN", "DATETIME", "DATE", "ENUM", "JSON", "SERIAL",
+        "ZEROFILL",
         // Common functions to uppercase
         "CONCAT_WS", "IFNULL", "COALESCE", "NOW",
     ]
@@ -130,42 +135,6 @@ fn tokens_display_width(tokens: &[Token]) -> usize {
         prev_was_word = matches!(tok, Token::Word(_));
     }
     width
-}
-
-fn tokens_to_string(tokens: &[Token]) -> String {
-    let mut s = String::new();
-    let mut prev_was_word = false;
-    for tok in tokens {
-        if prev_was_word && matches!(tok, Token::Word(_)) {
-            s.push(' ');
-        }
-        prev_was_word = matches!(tok, Token::Word(_));
-        match tok {
-            Token::Word(w) => s.push_str(w),
-            Token::Comment(c) => {
-                if c.starts_with("--") || c.starts_with('#') || c.starts_with("/*") {
-                    s.push(' ');
-                }
-                s.push_str(c);
-                if c.starts_with("--") || c.starts_with('#') {
-                    s.push('\n');
-                }
-            }
-            Token::OpenParen => s.push('('),
-            Token::CloseParen => s.push(')'),
-            Token::Comma => s.push(','),
-            Token::Semicolon => s.push(';'),
-            Token::Equals => s.push('='),
-            Token::Dot => s.push('.'),
-            Token::Star => s.push('*'),
-            Token::GreaterThan => s.push('>'),
-            Token::LessThan => s.push('<'),
-            Token::GreaterOrEqual => s.push_str(">="),
-            Token::LessOrEqual => s.push_str("<="),
-            Token::NotEquals => s.push_str("!="),
-        }
-    }
-    s
 }
 
 fn tokenize(input: &str) -> Vec<Token> {
@@ -594,7 +563,7 @@ fn format_create_table(tokens: &[Token]) -> String {
 
             for (idx, col) in col_defs.iter().enumerate() {
                 let name_str = tokens_upper_string(&col.name_tokens);
-                let type_str = tokens_to_string(&col.type_tokens);
+                let type_str = tokens_upper_string(&col.type_tokens);
                 let constraint_str = tokens_upper_string(&col.constraint_tokens);
 
                 let name_padded = format!("{:width$}", name_str, width = max_name_width);
@@ -988,7 +957,9 @@ fn format_statement(tokens: &[Token]) -> String {
 }
 
 fn format_sql(input: &str) -> String {
-    let tokens = tokenize(input);
+    // Normalize line endings: strip \r so Windows CRLF and Unix LF are handled identically
+    let input = input.replace("\r\n", "\n").replace('\r', "");
+    let tokens = tokenize(&input);
     let statements = split_statements(&tokens);
 
     let mut result = String::new();

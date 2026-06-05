@@ -1,6 +1,6 @@
 CREATE TABLE t1 (
-    a int 
+    a INT 
 );
 CREATE TABLE t2 (
-    b int 
+    b INT 
 );

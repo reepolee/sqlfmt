@@ -2,5 +2,5 @@ SELECT * FROM users;
 
 -- get all users
 /* important */ CREATE TABLE t (
-    id int 
+    id INT 
 );

@@ -75,6 +75,11 @@ fn test_multi_select() {
     run_golden_test("multi_select");
 }
 
+#[test]
+fn test_operators() {
+    run_golden_test("operators");
+}
+
 fn run_golden_test(name: &str) {
     let input_path = Path::new(DATA_DIR).join(format!("{}.input.sql", name));
     let golden_path = Path::new(DATA_DIR).join(format!("{}.golden.sql", name));
@@ -112,6 +117,10 @@ fn run_golden_test(name: &str) {
 
     let actual = String::from_utf8(output.stdout)
         .expect("Output is not valid UTF-8");
+
+    // Normalize line endings for cross-platform golden file matching
+    let expected = expected.replace("\r\n", "\n").replace('\r', "");
+    let actual = actual.replace("\r\n", "\n").replace('\r', "");
 
     assert_eq!(
         actual, expected,

@@ -1,6 +1,6 @@
 CREATE TABLE users (
-    id         bigint unsigned NOT NULL auto_increment PRIMARY KEY,
-    name       varchar(255)    NOT NULL,
-    email      varchar(255)    NOT NULL UNIQUE,
-    created_at timestamp       DEFAULT CURRENT_TIMESTAMP
+    id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(255)    NOT NULL,
+    email      VARCHAR(255)    NOT NULL UNIQUE,
+    created_at TIMESTAMP       DEFAULT CURRENT_TIMESTAMP
 );
