@@ -26,20 +26,53 @@ A MySQL SQL formatter written in Rust. Reads SQL from stdin or a file, and write
 git clone <repo-url>
 cd sqlfmt
 chmod +x build.sh install.sh
-./build.sh
+
+# Build for your native platform
+./build.sh native
+
+# Install
 ./install.sh
-source ~/.bashrc  # or restart terminal
+source ~/.zshrc  # or restart terminal
 ```
 
-The install script copies the binary to `~/bin/` and adds it to your PATH.
+On **macOS / Linux**, the build script supports these targets:
+
+```bash
+./build.sh native       # Build for current macOS architecture (arm64)
+./build.sh intel        # Cross-compile for Intel macOS (requires x86_64-apple-darwin target)
+./build.sh universal    # Create macOS universal binary (arm64 + x64)
+./build.sh linux        # Cross-compile for Linux x64 (requires toolchain)
+./build.sh all          # Build all supported targets (macOS + Linux)
+```
+
+### Prerequisites for Linux cross-compilation on macOS
+
+```bash
+# Add the Rust target
+rustup target add x86_64-apple-darwin x86_64-unknown-linux-gnu
+
+# Install the Linux GCC cross-compiler
+brew tap messense/macos-cross-toolchains
+brew install x86_64-unknown-linux-gnu
+```
+
+The build script checks for these dependencies and prints helpful error messages if anything is missing.
+
+The install script copies the platform-specific binary to `~/.local/bin/` and adds it to your PATH.
 
 ### Windows (PowerShell)
 
 ```powershell
+# Build
 .\build.ps1
+# Produces sqlfmt-windows-x64.exe
+
+# Install
 .\install.ps1
 # Restart terminal
 ```
+
+Windows builds are done natively on Windows — cross-compilation from macOS is not supported.
 
 ### Manual
 

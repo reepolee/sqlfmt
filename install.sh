@@ -1,34 +1,96 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
 
-BIN_NAME="sqlfmt"
-INSTALL_DIR="${HOME}/bin"
-TARGET="${INSTALL_DIR}/${BIN_NAME}"
+APP_NAME="sqlfmt"
+INSTALL_DIR="$HOME/.local/bin"
+TARGET="$INSTALL_DIR/$APP_NAME"
 
-mkdir -p "${INSTALL_DIR}"
+detect_bin_name() {
+	local os
+	local arch
 
-cp "./${BIN_NAME}" "${TARGET}"
-chmod +x "${TARGET}"
+	os="$(uname -s)"
+	arch="$(uname -m)"
 
-# Check if INSTALL_DIR is on PATH
-if [[ ":$PATH:" != *":${INSTALL_DIR}:"* ]]; then
-    # Determine which shell config to update
-    SHELL_PROFILE=""
-    if [[ -n "${ZSH_VERSION:-}" ]]; then
-        SHELL_PROFILE="${HOME}/.zshrc"
-    elif [[ -n "${BASH_VERSION:-}" ]]; then
-        SHELL_PROFILE="${HOME}/.bashrc"
-    else
-        # Default to profile
-        SHELL_PROFILE="${HOME}/.profile"
-    fi
+	case "$os" in
+		Darwin)
+			case "$arch" in
+				arm64|aarch64)
+					echo "${APP_NAME}-macos-arm64"
+					;;
+				x86_64)
+					echo "${APP_NAME}-macos-x64"
+					;;
+				*)
+					echo "Unsupported macOS architecture: $arch"
+					exit 1
+					;;
+			esac
+			;;
 
-    echo "export PATH=\"\${PATH}:${INSTALL_DIR}\"" >> "${SHELL_PROFILE}"
-    echo "Added ${INSTALL_DIR} to PATH in ${SHELL_PROFILE}"
-else
-    echo "${INSTALL_DIR} already in PATH"
+		Linux)
+			case "$arch" in
+				x86_64|amd64)
+					echo "${APP_NAME}-linux-x64"
+					;;
+				aarch64|arm64)
+					echo "${APP_NAME}-linux-arm64"
+					;;
+				*)
+					echo "Unsupported Linux architecture: $arch"
+					exit 1
+					;;
+			esac
+			;;
+
+		*)
+			echo "Unsupported operating system: $os"
+			exit 1
+			;;
+	esac
+}
+
+BIN_NAME="$(detect_bin_name)"
+
+if [ ! -f "./$BIN_NAME" ]; then
+	echo "Binary not found: ./$BIN_NAME"
+	exit 1
 fi
 
-echo "Installed to ${TARGET}"
+mkdir -p "$INSTALL_DIR"
+
+cp "./$BIN_NAME" "$TARGET"
+chmod +x "$TARGET"
+
+case ":$PATH:" in
+	*":$INSTALL_DIR:"*)
+		echo "$INSTALL_DIR already in PATH"
+		;;
+
+	*)
+		SHELL_RC=""
+
+		if [ -n "${ZSH_VERSION:-}" ]; then
+			SHELL_RC="$HOME/.zshrc"
+		elif [ -n "${BASH_VERSION:-}" ]; then
+			SHELL_RC="$HOME/.bashrc"
+		else
+			SHELL_RC="$HOME/.profile"
+		fi
+
+		if ! grep -Fq "$INSTALL_DIR" "$SHELL_RC" 2>/dev/null; then
+			echo "" >> "$SHELL_RC"
+			echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "$SHELL_RC"
+
+			echo "Added $INSTALL_DIR to PATH in $SHELL_RC"
+		fi
+		;;
+esac
+
+echo "Installed:"
+echo "  ./$BIN_NAME → $TARGET"
+
 echo ""
-echo "Run 'source ${SHELL_PROFILE}' or restart your terminal to use 'sqlfmt'"
+echo "Restart shell or run:"
+echo "export PATH=\"$INSTALL_DIR:\$PATH\""

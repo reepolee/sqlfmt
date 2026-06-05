@@ -1,10 +1,17 @@
+$SourceBin = "sqlfmt-windows-x64.exe"
 $BinName = "sqlfmt.exe"
 $InstallDir = Join-Path $HOME "bin"
 $Target = Join-Path $InstallDir $BinName
 
+if (!(Test-Path ".\$SourceBin")) {
+	Write-Host "Binary not found: .\$SourceBin"
+	Write-Host "Run .\build.ps1 first to build the binary."
+	exit 1
+}
+
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-Copy-Item ".\$BinName" $Target -Force
+Copy-Item ".\$SourceBin" $Target -Force
 
 $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
 
@@ -13,8 +20,7 @@ $Paths = $UserPath -split ";"
 if ($Paths -notcontains $InstallDir) {
 	$NewPath = if ([string]::IsNullOrWhiteSpace($UserPath)) {
 		$InstallDir
-	}
- else {
+	} else {
 		"$UserPath;$InstallDir"
 	}
 
@@ -25,8 +31,7 @@ if ($Paths -notcontains $InstallDir) {
 	)
 
 	Write-Host "Added $InstallDir to user PATH"
-}
-else {
+} else {
 	Write-Host "$InstallDir already in PATH"
 }
 
