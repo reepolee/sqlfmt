@@ -165,6 +165,9 @@ fn tokenize(input: &str) -> Vec<Token> {
                 if i + 1 < chars.len() && chars[i + 1] == '=' {
                     tokens.push(Token::LessOrEqual);
                     i += 2;
+                } else if i + 1 < chars.len() && chars[i + 1] == '>' {
+                    tokens.push(Token::NotEquals);
+                    i += 2;
                 } else {
                     tokens.push(Token::LessThan);
                     i += 1;
@@ -932,8 +935,255 @@ fn split_at_as(tokens: &[Token]) -> (Vec<Token>, Option<Vec<Token>>) {
     (tokens.to_vec(), None)
 }
 
+fn find_matching_paren(tokens: &[Token], open_idx: usize) -> Option<usize> {
+    let mut depth = 0;
+    for i in open_idx..tokens.len() {
+        match &tokens[i] {
+            Token::OpenParen => depth += 1,
+            Token::CloseParen => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn is_subquery_start(tokens: &[Token], idx: usize) -> bool {
+    matches!(&tokens[idx], Token::OpenParen)
+        && idx + 1 < tokens.len()
+        && matches!(&tokens[idx + 1], Token::Word(w) if w.to_uppercase() == "SELECT")
+        && find_matching_paren(tokens, idx).is_some()
+}
+
+fn is_update(tokens: &[Token]) -> bool {
+    for tok in tokens {
+        if let Token::Comment(_) = tok {
+            continue;
+        }
+        if let Token::Word(w) = tok {
+            return w.to_uppercase() == "UPDATE";
+        }
+        return false;
+    }
+    false
+}
+
+fn is_delete(tokens: &[Token]) -> bool {
+    for tok in tokens {
+        if let Token::Comment(_) = tok {
+            continue;
+        }
+        if let Token::Word(w) = tok {
+            return w.to_uppercase() == "DELETE";
+        }
+        return false;
+    }
+    false
+}
+
+fn format_update(tokens: &[Token]) -> String {
+    let set_pos = tokens.iter().position(|t| {
+        matches!(t, Token::Word(w) if w.to_uppercase() == "SET")
+    });
+
+    let Some(set_pos) = set_pos else {
+        return tokens_upper_string(tokens);
+    };
+
+    // Find WHERE position (only after SET)
+    let after_set = &tokens[set_pos + 1..];
+    let where_in_set = after_set.iter().position(|t| {
+        matches!(t, Token::Word(w) if w.to_uppercase() == "WHERE")
+    });
+    let where_pos = where_in_set.map(|p| set_pos + 1 + p);
+
+    let mut result = String::new();
+
+    // UPDATE table [clauses before SET]
+    let before_str = tokens_upper_string(&tokens[..set_pos]);
+    result.push_str(&before_str);
+    result.push_str("\nSET");
+
+    // SET assignments
+    let set_end = where_pos.unwrap_or({
+        if matches!(tokens.last(), Some(Token::Semicolon)) {
+            tokens.len() - 1
+        } else {
+            tokens.len()
+        }
+    });
+    let assignments_tokens = &tokens[set_pos + 1..set_end];
+    let assignments = parse_select_columns(assignments_tokens);
+
+    for (i, assign) in assignments.iter().enumerate() {
+        let assign_str = tokens_upper_string(assign);
+        if i < assignments.len() - 1 {
+            result.push_str(&format!("\n    {},", assign_str));
+        } else {
+            result.push_str(&format!("\n    {}", assign_str));
+        }
+    }
+
+    // WHERE and any remaining clauses
+    if let Some(wp) = where_pos {
+        result.push('\n');
+        let remaining = &tokens[wp..];
+        let remaining_str = if matches!(remaining.last(), Some(Token::Semicolon)) {
+            tokens_upper_string(&remaining[..remaining.len() - 1])
+        } else {
+            tokens_upper_string(remaining)
+        };
+        result.push_str(&remaining_str);
+    }
+
+    // Semicolon
+    if matches!(tokens.last(), Some(Token::Semicolon)) {
+        result.push(';');
+    }
+
+    result
+}
+
+fn format_delete(tokens: &[Token]) -> String {
+    let where_pos = tokens.iter().position(|t| {
+        matches!(t, Token::Word(w) if w.to_uppercase() == "WHERE")
+    });
+
+    let mut result = String::new();
+
+    if let Some(wp) = where_pos {
+        // DELETE FROM table [clauses]
+        let before_str = tokens_upper_string(&tokens[..wp]);
+        result.push_str(&before_str);
+
+        // WHERE clause on new line
+        result.push('\n');
+        let remaining = &tokens[wp..];
+        let remaining_str = if matches!(remaining.last(), Some(Token::Semicolon)) {
+            tokens_upper_string(&remaining[..remaining.len() - 1])
+        } else {
+            tokens_upper_string(remaining)
+        };
+        result.push_str(&remaining_str);
+    } else {
+        result.push_str(&tokens_upper_string(tokens));
+    }
+
+    // Semicolon
+    if matches!(tokens.last(), Some(Token::Semicolon)) && !result.ends_with(';') {
+        result.push(';');
+    }
+
+    result
+}
+
 fn format_generic(tokens: &[Token]) -> String {
-    tokens_upper_string(tokens)
+    let mut result = String::new();
+    let mut prev_idx: Option<usize> = None;
+    let mut i = 0;
+
+    while i < tokens.len() {
+        // Check for subquery: (SELECT ...)
+        if is_subquery_start(tokens, i) {
+            let close = find_matching_paren(tokens, i).unwrap();
+
+            // Add spacing before subquery based on previous token
+            let need_space_before = prev_idx.is_some_and(|p| {
+                matches!(
+                    &tokens[p],
+                    Token::Word(_)
+                        | Token::Comma
+                        | Token::CloseParen
+                        | Token::Equals
+                        | Token::Star
+                        | Token::GreaterThan
+                        | Token::LessThan
+                        | Token::GreaterOrEqual
+                        | Token::LessOrEqual
+                        | Token::NotEquals
+                )
+            });
+            if need_space_before {
+                result.push(' ');
+            }
+
+            // Format subquery contents recursively
+            let inner = &tokens[i + 1..close];
+            let inner_sql = tokens_upper_string(inner);
+            let formatted = format_sql(&inner_sql);
+            let trimmed = formatted.trim();
+
+            // Wrap in indented parens
+            result.push_str("(\n");
+            for line in trimmed.lines() {
+                result.push_str("    ");
+                result.push_str(line);
+                result.push('\n');
+            }
+            result.push(')');
+
+            i = close + 1;
+            prev_idx = Some(close);
+            continue;
+        }
+
+        // Handle comments (same logic as tokens_upper_string)
+        if let Token::Comment(c) = &tokens[i] {
+            if prev_idx.is_some_and(|p| {
+                matches!(&tokens[p], Token::Word(_) | Token::Star | Token::CloseParen | Token::Comma)
+            }) {
+                result.push(' ');
+            }
+            result.push_str(c);
+            if c.starts_with("--") || c.starts_with('#') {
+                result.push('\n');
+                prev_idx = None;
+            } else {
+                prev_idx = Some(i);
+            }
+            i += 1;
+            continue;
+        }
+
+        // Spacing logic (same as tokens_upper_string)
+        let need_space = match (prev_idx.map(|idx| &tokens[idx]), &tokens[i]) {
+            (Some(Token::Word(_)), Token::Word(_)) => true,
+            (Some(Token::Word(_)), Token::Equals) => true,
+            (Some(Token::Equals), Token::Word(_)) => true,
+            (Some(Token::CloseParen), Token::Word(_)) => true,
+            (Some(Token::Comma), Token::Word(_)) => true,
+            (Some(Token::Word(_)), Token::Star) => true,
+            (Some(Token::Star), Token::Word(_)) => true,
+            (Some(Token::Star), Token::Comment(_)) => true,
+            (Some(Token::Comment(c)), Token::Word(_)) if !c.starts_with("--") && !c.starts_with('#') => true,
+            // Operators need spaces around them
+            (Some(Token::Word(_)), Token::GreaterThan) => true,
+            (Some(Token::GreaterThan), Token::Word(_)) => true,
+            (Some(Token::Word(_)), Token::LessThan) => true,
+            (Some(Token::LessThan), Token::Word(_)) => true,
+            (Some(Token::Word(_)), Token::GreaterOrEqual) => true,
+            (Some(Token::GreaterOrEqual), Token::Word(_)) => true,
+            (Some(Token::Word(_)), Token::LessOrEqual) => true,
+            (Some(Token::LessOrEqual), Token::Word(_)) => true,
+            (Some(Token::Word(_)), Token::NotEquals) => true,
+            (Some(Token::NotEquals), Token::Word(_)) => true,
+            _ => false,
+        };
+
+        if need_space {
+            result.push(' ');
+        }
+
+        result.push_str(&token_upper_string(&tokens[i]));
+        prev_idx = Some(i);
+        i += 1;
+    }
+
+    result
 }
 
 fn format_statement(tokens: &[Token]) -> String {
@@ -951,6 +1201,10 @@ fn format_statement(tokens: &[Token]) -> String {
         format_create_index(tokens)
     } else if is_drop(tokens) {
         format_drop(tokens)
+    } else if is_update(tokens) {
+        format_update(tokens)
+    } else if is_delete(tokens) {
+        format_delete(tokens)
     } else {
         format_generic(tokens)
     }

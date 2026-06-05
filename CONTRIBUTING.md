@@ -131,8 +131,11 @@ The test binary pipes the input through `sqlfmt` via stdin and asserts that stdo
 When adding features or fixing bugs, include test cases that cover:
 
 - Normal/expected inputs
-- Edge cases (empty input, missing semicolon, subqueries)
+- Edge cases (empty input, missing semicolon)
 - Comment preservation (`--`, `/* */`, `#`)
+- Comparison operators (`>`, `<`, `>=`, `<=`, `!=`, `<>`)
+- Subqueries (`(SELECT ...)` in column lists and WHERE clauses)
+- Statement-specific formatting (UPDATE, DELETE, CREATE TABLE, INSERT, CREATE VIEW)
 - Multiple statements (same type and mixed types)
 
 ## Pull Request Process

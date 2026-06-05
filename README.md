@@ -7,12 +7,16 @@ A MySQL SQL formatter written in Rust. Reads SQL from stdin or a file, and write
 ## Features
 
 - **Keyword uppercasing** — SQL keywords (`SELECT`, `FROM`, `WHERE`, `CREATE`, `INSERT`, etc.) are uppercased
-- **CREATE TABLE formatting** — column names and types aligned, constraints on separate lines
+- **CREATE TABLE formatting** — column names and types aligned, constraints on separate lines, types uppercased
 - **CREATE VIEW formatting** — select columns on separate lines with `AS` alignment, JOINs indented
+- **UPDATE formatting** — `SET` assignments on indented lines, `WHERE` on its own line
+- **DELETE formatting** — `WHERE` clause on its own line
 - **INSERT formatting** — multi-line value tuples when they exceed 100 characters
-- **SELECT formatting** — aligned columns, organized FROM/JOIN/WHERE clauses
+- **Subquery formatting** — `(SELECT ...)` subqueries indented on separate lines
+- **Operator support** — comparison operators (`>`, `<`, `>=`, `<=`, `!=`, `<>`) are preserved and spaced correctly
 - **Comment preservation** — `--`, `/* */`, and `#` comments are preserved and positioned correctly
 - **In-place file editing** — pass a file path to format it in place, or use stdin/stdout
+- **Cross-platform** — normalizes `\r\n` and `\n` line endings consistently
 
 ## Installation
 
@@ -78,6 +82,20 @@ select u.name, o.total from users u inner join orders o on u.id = o.user_id wher
 SELECT u.name, o.total FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE o.total > 100;
 ```
 
+### SELECT with subquery
+
+**Input:**
+```sql
+select id, (select max(price) from orders o where o.user_id = u.id) as max_order from users u where u.active = 1;
+```
+
+**Output:**
+```sql
+SELECT id, (
+    SELECT max(price) FROM orders o WHERE o.user_id = u.id
+) AS max_order FROM users u WHERE u.active = 1;
+```
+
 ### CREATE TABLE
 
 **Input:**
@@ -88,10 +106,10 @@ create table users (id bigint unsigned not null auto_increment primary key, name
 **Output:**
 ```sql
 CREATE TABLE users (
-    id         bigint unsigned NOT NULL auto_increment PRIMARY KEY,
-    name       varchar(255)    NOT NULL,
-    email      varchar(255)    NOT NULL UNIQUE,
-    created_at timestamp       DEFAULT CURRENT_TIMESTAMP
+    id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(255)    NOT NULL,
+    email      VARCHAR(255)    NOT NULL UNIQUE,
+    created_at TIMESTAMP       DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
@@ -113,6 +131,35 @@ FROM users u
     INNER JOIN orders o
         ON u.id = o.user_id
 WHERE o.total > 100;
+```
+
+### UPDATE
+
+**Input:**
+```sql
+update users set name = 'Alice', email = 'alice@example.com' where id = 1;
+```
+
+**Output:**
+```sql
+UPDATE users
+SET
+    name = 'Alice',
+    email = 'alice@example.com'
+WHERE id = 1;
+```
+
+### DELETE
+
+**Input:**
+```sql
+delete from users where id = 1;
+```
+
+**Output:**
+```sql
+DELETE FROM users
+WHERE id = 1;
 ```
 
 ### INSERT (short)
@@ -159,25 +206,41 @@ SELECT * FROM users;
 # hash comment
 ```
 
+### Operators
+
+**Input:**
+```sql
+select * from users where age >= 18 and age <= 65 and name != 'admin' and status <> 'inactive';
+```
+
+**Output:**
+```sql
+SELECT * FROM users WHERE age >= 18 AND age <= 65 AND name != 'admin' AND status != 'inactive';
+```
+
 ## Supported statement types
 
-- `SELECT` (generic formatting)
-- `CREATE TABLE` (aligned column definitions, constraints)
-- `CREATE VIEW` (aligned SELECT columns with AS, indented JOINs)
-- `CREATE INDEX` (uppercased, compact)
-- `INSERT` (multi-line values for long tuples)
-- `DROP` (uppercased, compact)
+| Statement | Description |
+|-----------|-------------|
+| `SELECT` | Generic formatting with subquery indentation |
+| `CREATE TABLE` | Aligned column definitions, types uppercased, constraints on separate lines |
+| `CREATE VIEW` | Aligned SELECT columns with AS, indented JOINs |
+| `CREATE INDEX` | Uppercased, compact |
+| `INSERT` | Multi-line value tuples for long inputs |
+| `UPDATE` | SET assignments on indented lines, WHERE on its own line |
+| `DELETE` | WHERE clause on its own line |
+| `DROP` | Uppercased, compact |
 
 ## How it works
 
-1. **Tokenization** — raw SQL is split into tokens (keywords, identifiers, operators, comments, strings)
+1. **Tokenization** — raw SQL is split into tokens: keywords, identifiers, operators (`>`, `<`, `>=`, `<=`, `!=`, `<>`), comments, and strings
 2. **Statement splitting** — tokens are split at semicolons into individual statements
-3. **Type detection** — each statement is classified (CREATE TABLE, SELECT, INSERT, etc.)
-4. **Formatting** — each statement type has a dedicated formatter that produces well-structured output
+3. **Type detection** — each statement is classified (CREATE TABLE, SELECT, INSERT, UPDATE, etc.)
+4. **Formatting** — each statement type has a dedicated formatter that produces well-structured output; subqueries are formatted recursively with indentation
 
 ## Testing
 
-The project includes an integration test suite that formats sample SQL inputs and compares the output against golden files.
+The project includes **19 integration tests** that format sample SQL inputs and compare the output against golden files.
 
 ```bash
 # Run all integration tests

@@ -80,6 +80,26 @@ fn test_operators() {
     run_golden_test("operators");
 }
 
+#[test]
+fn test_update() {
+    run_golden_test("update");
+}
+
+#[test]
+fn test_update_no_where() {
+    run_golden_test("update_no_where");
+}
+
+#[test]
+fn test_delete() {
+    run_golden_test("delete");
+}
+
+#[test]
+fn test_delete_no_where() {
+    run_golden_test("delete_no_where");
+}
+
 fn run_golden_test(name: &str) {
     let input_path = Path::new(DATA_DIR).join(format!("{}.input.sql", name));
     let golden_path = Path::new(DATA_DIR).join(format!("{}.golden.sql", name));
