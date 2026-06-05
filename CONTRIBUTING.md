@@ -145,6 +145,72 @@ When adding features or fixing bugs, include test cases that cover:
 3. Reference any related issues in your PR description (e.g., "Closes #12").
 4. A maintainer will review your PR. Address any feedback with additional commits.
 
+## Release Checklist
+
+- [ ] **Bump version** — update the version in `Cargo.toml`:
+
+   ```toml
+   [package]
+   name = "sqlfmt"
+   version = "X.Y.Z"
+   ```
+
+- [ ] **Build all targets** — run the platform-appropriate command:
+
+   | Platform | Command | Produces |
+   |----------|---------|----------|
+   | macOS | `./build.sh all` | macOS arm64, x64, universal + Linux x64 |
+   | Windows | `.\build.ps1` | Windows x64 |
+
+- [ ] **Run tests** — ensure all integration tests pass:
+
+   ```bash
+   cargo test
+   ```
+
+- [ ] **Stage all files** — source, build scripts, config, and binaries:
+
+   ```bash
+   git add -A
+   ```
+
+- [ ] **Commit and tag** — commit with the version, then tag:
+
+   ```bash
+   git commit -m "vX.Y.Z"
+   git tag vX.Y.Z
+   ```
+
+- [ ] **Push** — push the commit and tag together:
+
+   ```bash
+   git push origin main --tags
+   ```
+
+### Cross-compilation prerequisites
+
+For releases on **macOS**, install the cross-compilation toolchain first:
+
+```bash
+rustup target add x86_64-apple-darwin x86_64-unknown-linux-gnu
+brew tap messense/macos-cross-toolchains
+brew install x86_64-unknown-linux-gnu
+```
+
+### Binary naming convention
+
+Platform-annotated binaries produced by the build scripts:
+
+| Binary | Platform |
+|--------|----------|
+| `sqlfmt-macos-arm64` | Apple Silicon Mac |
+| `sqlfmt-macos-x64` | Intel Mac |
+| `sqlfmt-macos-universal` | Universal Mac (arm64 + x64) |
+| `sqlfmt-linux-x64` | Linux x86_64 |
+| `sqlfmt-windows-x64.exe` | Windows x86_64 |
+
+The install scripts (`install.sh`, `install.ps1`) auto-detect the platform and install the correct binary.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
