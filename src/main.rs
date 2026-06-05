@@ -13,6 +13,7 @@ struct Cli {
 #[derive(Debug, Clone, PartialEq)]
 enum Token {
     Word(String),
+    Comment(String),
     OpenParen,
     CloseParen,
     Comma,
@@ -107,6 +108,7 @@ fn token_width(tok: &Token) -> usize {
     match tok {
         Token::Word(w) => w.len(),
         Token::Star => 1,
+        Token::Comment(_) => 0,
         _ => 1,
     }
 }
@@ -134,6 +136,15 @@ fn tokens_to_string(tokens: &[Token]) -> String {
         prev_was_word = matches!(tok, Token::Word(_));
         match tok {
             Token::Word(w) => s.push_str(w),
+            Token::Comment(c) => {
+                if c.starts_with("--") || c.starts_with('#') || c.starts_with("/*") {
+                    s.push(' ');
+                }
+                s.push_str(c);
+                if c.starts_with("--") || c.starts_with('#') {
+                    s.push('\n');
+                }
+            }
             Token::OpenParen => s.push('('),
             Token::CloseParen => s.push(')'),
             Token::Comma => s.push(','),
@@ -188,17 +199,23 @@ fn tokenize(input: &str) -> Vec<Token> {
                 tokens.push(Token::Word(chars[start..i].iter().collect()));
             }
             _ if c == '-' && i + 1 < chars.len() && chars[i + 1] == '-' => {
+                let start = i;
                 while i < chars.len() && chars[i] != '\n' { i += 1; }
+                tokens.push(Token::Comment(chars[start..i].iter().collect()));
             }
             _ if c == '/' && i + 1 < chars.len() && chars[i + 1] == '*' => {
+                let start = i;
                 i += 2;
                 while i + 1 < chars.len() && !(chars[i] == '*' && chars[i + 1] == '/') {
                     i += 1;
                 }
                 if i + 1 < chars.len() { i += 2; } else { i = chars.len(); }
+                tokens.push(Token::Comment(chars[start..i].iter().collect()));
             }
             _ if c == '#' => {
+                let start = i;
                 while i < chars.len() && chars[i] != '\n' { i += 1; }
+                tokens.push(Token::Comment(chars[start..i].iter().collect()));
             }
             _ if c.is_whitespace() => {
                 i += 1;
@@ -243,6 +260,7 @@ fn token_upper_string(tok: &Token) -> String {
         Token::Word(w) => {
             if is_keyword(w) { w.to_uppercase() } else { w.clone() }
         }
+        Token::Comment(c) => c.clone(),
         Token::OpenParen => "(".into(),
         Token::CloseParen => ")".into(),
         Token::Comma => ",".into(),
@@ -257,6 +275,26 @@ fn tokens_upper_string(tokens: &[Token]) -> String {
     let mut s = String::new();
     let mut prev: Option<&Token> = None;
     for tok in tokens {
+        match tok {
+            Token::Comment(c) => {
+                if matches!(prev, Some(Token::Word(_)))
+                    || matches!(prev, Some(Token::Star))
+                    || matches!(prev, Some(Token::CloseParen))
+                    || matches!(prev, Some(Token::Comma))
+                {
+                    s.push(' ');
+                }
+                s.push_str(c);
+                if c.starts_with("--") || c.starts_with('#') {
+                    s.push('\n');
+                    prev = None;
+                } else {
+                    prev = Some(tok);
+                }
+                continue;
+            }
+            _ => {}
+        }
         let need_space = match (prev, tok) {
             (Some(Token::Word(_)), Token::Word(_)) => true,
             (Some(Token::Word(_)), Token::Equals) => true,
@@ -265,6 +303,8 @@ fn tokens_upper_string(tokens: &[Token]) -> String {
             (Some(Token::Comma), Token::Word(_)) => true,
             (Some(Token::Word(_)), Token::Star) => true,
             (Some(Token::Star), Token::Word(_)) => true,
+            (Some(Token::Star), Token::Comment(_)) => true,
+            (Some(Token::Comment(c)), Token::Word(_)) if !c.starts_with("--") && !c.starts_with('#') => true,
             _ => false,
         };
         if need_space {
@@ -279,14 +319,23 @@ fn tokens_upper_string(tokens: &[Token]) -> String {
 fn tokens_upper_string_nospace(tokens: &[Token]) -> String {
     let mut s = String::new();
     for tok in tokens {
-        s.push_str(&token_upper_string(tok));
+        let t = token_upper_string(tok);
+        if let Token::Comment(c) = tok {
+            if c.starts_with("--") || c.starts_with('#') {
+                s.push('\n');
+            } else {
+                s.push(' ');
+            }
+        }
+        s.push_str(&t);
     }
     s
 }
 
 fn is_create_table(tokens: &[Token]) -> bool {
-    if tokens.len() >= 2 {
-        if let (Token::Word(a), Token::Word(b)) = (&tokens[0], &tokens[1]) {
+    let words: Vec<&Token> = tokens.iter().filter(|t| !matches!(t, Token::Comment(_))).collect();
+    if words.len() >= 2 {
+        if let (Token::Word(a), Token::Word(b)) = (&words[0], &words[1]) {
             return a.to_uppercase() == "CREATE" && b.to_uppercase() == "TABLE";
         }
     }
@@ -294,15 +343,16 @@ fn is_create_table(tokens: &[Token]) -> bool {
 }
 
 fn is_create_view(tokens: &[Token]) -> Option<usize> {
-    if tokens.len() >= 3 {
-        if let (Token::Word(a), Token::Word(b)) = (&tokens[0], &tokens[1]) {
+    let words: Vec<(usize, &Token)> = tokens.iter().enumerate().filter(|(_, t)| !matches!(t, Token::Comment(_))).collect();
+    if words.len() >= 3 {
+        if let (Token::Word(a), Token::Word(b)) = (&words[0].1, &words[1].1) {
             if a.to_uppercase() == "CREATE"
                 && (b.to_uppercase() == "VIEW" || b.to_uppercase() == "OR")
             {
-                for (idx, tok) in tokens.iter().enumerate() {
+                for (idx, tok) in words.iter().skip(2) {
                     if let Token::Word(w) = tok {
                         if w.to_uppercase() == "SELECT" {
-                            return Some(idx);
+                            return Some(*idx);
                         }
                     }
                 }
@@ -313,26 +363,35 @@ fn is_create_view(tokens: &[Token]) -> Option<usize> {
 }
 
 fn is_insert(tokens: &[Token]) -> bool {
-    if tokens.len() >= 2 {
-        if let Token::Word(a) = &tokens[0] {
+    for tok in tokens {
+        if let Token::Comment(_) = tok {
+            continue;
+        }
+        if let Token::Word(a) = tok {
             return a.to_uppercase() == "INSERT";
         }
+        return false;
     }
     false
 }
 
 fn is_drop(tokens: &[Token]) -> bool {
-    if tokens.len() >= 2 {
-        if let Token::Word(a) = &tokens[0] {
+    for tok in tokens {
+        if let Token::Comment(_) = tok {
+            continue;
+        }
+        if let Token::Word(a) = tok {
             return a.to_uppercase() == "DROP";
         }
+        return false;
     }
     false
 }
 
 fn is_create_index(tokens: &[Token]) -> bool {
-    if tokens.len() >= 3 {
-        if let (Token::Word(a), Token::Word(b)) = (&tokens[0], &tokens[1]) {
+    let words: Vec<&Token> = tokens.iter().filter(|t| !matches!(t, Token::Comment(_))).collect();
+    if words.len() >= 3 {
+        if let (Token::Word(a), Token::Word(b)) = (&words[0], &words[1]) {
             if a.to_uppercase() == "CREATE" {
                 return b.to_uppercase() == "INDEX" || b.to_uppercase() == "UNIQUE";
             }
@@ -407,11 +466,18 @@ fn split_first_word(tokens: &[Token]) -> (Vec<Token>, Vec<Token>) {
     if tokens.is_empty() {
         return (vec![], vec![]);
     }
-    if let Token::Word(_) = &tokens[0] {
-        (vec![tokens[0].clone()], tokens[1..].to_vec())
-    } else {
-        (vec![], tokens.to_vec())
+    // Skip leading comments
+    for i in 0..tokens.len() {
+        if let Token::Comment(_) = &tokens[i] {
+            continue;
+        }
+        if let Token::Word(_) = &tokens[i] {
+            return (tokens[..=i].to_vec(), tokens[i + 1..].to_vec());
+        } else {
+            return (vec![], tokens[i..].to_vec());
+        }
     }
+    (vec![], vec![])
 }
 
 fn split_type_and_constraints(tokens: &[Token]) -> (Vec<Token>, Vec<Token>) {
