@@ -1,5 +1,7 @@
 # sqlfmt
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A MySQL SQL formatter written in Rust. Reads SQL from stdin or a file, and writes back consistently formatted SQL.
 
 ## Features
@@ -73,11 +75,7 @@ select u.name, o.total from users u inner join orders o on u.id = o.user_id wher
 
 **Output:**
 ```sql
-SELECT u.name, o.total
-FROM users u
-    INNER JOIN orders o
-        ON u.id = o.user_id
-WHERE o.total > 100;
+SELECT u.name, o.total FROM users u INNER JOIN orders o ON u.id = o.user_id WHERE o.total 100;
 ```
 
 ### CREATE TABLE
@@ -90,24 +88,75 @@ create table users (id bigint unsigned not null auto_increment primary key, name
 **Output:**
 ```sql
 CREATE TABLE users (
-    id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    name        VARCHAR(255)    NOT NULL,
-    email       VARCHAR(255)    NOT NULL UNIQUE,
-    created_at  TIMESTAMP       DEFAULT CURRENT_TIMESTAMP
+    id         bigint unsigned NOT NULL auto_increment PRIMARY KEY,
+    name       varchar(255)    NOT NULL,
+    email      varchar(255)    NOT NULL UNIQUE,
+    created_at timestamp       DEFAULT CURRENT_TIMESTAMP
 );
+```
+
+### CREATE VIEW
+
+**Input:**
+```sql
+create view active_users as select u.id as user_id, u.name as user_name, o.total from users u inner join orders o on u.id = o.user_id where o.total > 100;
+```
+
+**Output:**
+```sql
+CREATE VIEW active_users AS
+SELECT
+    u.id   AS user_id,
+    u.name AS user_name,
+    o.total
+FROM users u
+    INNER JOIN orders o
+        ON u.id = o.user_id
+WHERE o.total 100;
+```
+
+### INSERT (short)
+
+**Input:**
+```sql
+insert into users (id, name) values (1, 'Alice');
+```
+
+**Output:**
+```sql
+INSERT INTO users (id, name) VALUES (1,'Alice');
+```
+
+### INSERT (long — multi-line when > 100 chars)
+
+**Input:**
+```sql
+insert into users (id, name, email, status, role, department) values (1, 'Alexander Hamilton', 'alex@example.com', 'active', 'admin', 'engineering'), (2, 'Benjamin Franklin', 'ben@example.com', 'active', 'user', 'marketing');
+```
+
+**Output:**
+```sql
+INSERT INTO users (id, name, email, status, role, department) VALUES
+(1,'Alexander Hamilton','alex@example.com','active','admin','engineering'),
+(2,'Benjamin Franklin','ben@example.com','active','user','marketing');
 ```
 
 ### With comments preserved
 
 **Input:**
 ```sql
-SELECT * FROM users; -- get all users
+select * from users; -- inline comment
+/* block comment */ select id, name from products; # hash comment
 ```
 
 **Output:**
 ```sql
-SELECT *
-FROM users; -- get all users
+SELECT * FROM users;
+
+-- inline comment
+/* block comment */ SELECT id, name FROM products;
+
+# hash comment
 ```
 
 ## Supported statement types
@@ -125,6 +174,17 @@ FROM users; -- get all users
 2. **Statement splitting** — tokens are split at semicolons into individual statements
 3. **Type detection** — each statement is classified (CREATE TABLE, SELECT, INSERT, etc.)
 4. **Formatting** — each statement type has a dedicated formatter that produces well-structured output
+
+## Testing
+
+The project includes an integration test suite that formats sample SQL inputs and compares the output against golden files.
+
+```bash
+# Run all integration tests
+cargo test
+```
+
+Test inputs and expected outputs live in the [`tests/data/`](tests/data) directory. Each test case has an `.input.sql` file and a matching `.golden.sql` file with the expected formatted output. To add a new test, create a pair of files and add a test function in [`tests/integration_test.rs`](tests/integration_test.rs).
 
 ## Building from source
 

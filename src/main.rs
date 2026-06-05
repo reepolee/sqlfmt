@@ -21,6 +21,11 @@ enum Token {
     Equals,
     Dot,
     Star,
+    GreaterThan,
+    LessThan,
+    GreaterOrEqual,
+    LessOrEqual,
+    NotEquals,
 }
 
 static KEYWORDS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
@@ -109,6 +114,7 @@ fn token_width(tok: &Token) -> usize {
         Token::Word(w) => w.len(),
         Token::Star => 1,
         Token::Comment(_) => 0,
+        Token::GreaterOrEqual | Token::LessOrEqual | Token::NotEquals => 2,
         _ => 1,
     }
 }
@@ -152,6 +158,11 @@ fn tokens_to_string(tokens: &[Token]) -> String {
             Token::Equals => s.push('='),
             Token::Dot => s.push('.'),
             Token::Star => s.push('*'),
+            Token::GreaterThan => s.push('>'),
+            Token::LessThan => s.push('<'),
+            Token::GreaterOrEqual => s.push_str(">="),
+            Token::LessOrEqual => s.push_str("<="),
+            Token::NotEquals => s.push_str("!="),
         }
     }
     s
@@ -172,6 +183,32 @@ fn tokenize(input: &str) -> Vec<Token> {
             '=' => { tokens.push(Token::Equals); i += 1; }
             '.' => { tokens.push(Token::Dot); i += 1; }
             '*' => { tokens.push(Token::Star); i += 1; }
+            '>' => {
+                if i + 1 < chars.len() && chars[i + 1] == '=' {
+                    tokens.push(Token::GreaterOrEqual);
+                    i += 2;
+                } else {
+                    tokens.push(Token::GreaterThan);
+                    i += 1;
+                }
+            }
+            '<' => {
+                if i + 1 < chars.len() && chars[i + 1] == '=' {
+                    tokens.push(Token::LessOrEqual);
+                    i += 2;
+                } else {
+                    tokens.push(Token::LessThan);
+                    i += 1;
+                }
+            }
+            '!' => {
+                if i + 1 < chars.len() && chars[i + 1] == '=' {
+                    tokens.push(Token::NotEquals);
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            }
             '\'' => {
                 let start = i;
                 i += 1;
@@ -268,6 +305,11 @@ fn token_upper_string(tok: &Token) -> String {
         Token::Equals => "=".into(),
         Token::Dot => ".".into(),
         Token::Star => "*".into(),
+        Token::GreaterThan => ">".into(),
+        Token::LessThan => "<".into(),
+        Token::GreaterOrEqual => ">=".into(),
+        Token::LessOrEqual => "<=".into(),
+        Token::NotEquals => "!=".into(),
     }
 }
 
@@ -305,6 +347,17 @@ fn tokens_upper_string(tokens: &[Token]) -> String {
             (Some(Token::Star), Token::Word(_)) => true,
             (Some(Token::Star), Token::Comment(_)) => true,
             (Some(Token::Comment(c)), Token::Word(_)) if !c.starts_with("--") && !c.starts_with('#') => true,
+            // Operators need spaces around them
+            (Some(Token::Word(_)), Token::GreaterThan) => true,
+            (Some(Token::GreaterThan), Token::Word(_)) => true,
+            (Some(Token::Word(_)), Token::LessThan) => true,
+            (Some(Token::LessThan), Token::Word(_)) => true,
+            (Some(Token::Word(_)), Token::GreaterOrEqual) => true,
+            (Some(Token::GreaterOrEqual), Token::Word(_)) => true,
+            (Some(Token::Word(_)), Token::LessOrEqual) => true,
+            (Some(Token::LessOrEqual), Token::Word(_)) => true,
+            (Some(Token::Word(_)), Token::NotEquals) => true,
+            (Some(Token::NotEquals), Token::Word(_)) => true,
             _ => false,
         };
         if need_space {
