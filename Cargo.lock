@@ -136,7 +136,7 @@ dependencies = [
 
 [[package]]
 name = "sqlfmt"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "clap",
 ]
