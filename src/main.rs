@@ -162,7 +162,7 @@ static KEYWORDS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
         "TRUNCATE", "TRUSTED", "TYPE", "TYPES",
         "UNBOUNDED", "UNCOMMITTED", "UNENCRYPTED", "UNKNOWN", "UNLISTEN",
         "UNLOGGED", "UNTIL",
-        "VACUUM", "VALID", "VALIDATE", "VALIDATOR", "VALUE",
+        "VACUUM", "VALID", "VALIDATE", "VALIDATOR",
         "VARIADIC", "VERBOSE", "VIEWS", "VOLATILE",
         "WHITESPACE", "WITHIN", "WORK", "WRAPPER",
         "XMLAGG", "XMLATTRIBUTES", "XMLCONCAT", "XMLELEMENT",
