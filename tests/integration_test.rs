@@ -21,6 +21,11 @@ fn test_create_view() {
 }
 
 #[test]
+fn test_create_view_sqlite() {
+    run_golden_test("create_view_sqlite");
+}
+
+#[test]
 fn test_insert_short() {
     run_golden_test("insert_short");
 }
@@ -98,6 +103,26 @@ fn test_delete() {
 #[test]
 fn test_delete_no_where() {
     run_golden_test("delete_no_where");
+}
+
+#[test]
+fn test_pg_cast() {
+    run_golden_test("pg_cast");
+}
+
+#[test]
+fn test_pg_ilike() {
+    run_golden_test("pg_ilike");
+}
+
+#[test]
+fn test_pg_returning() {
+    run_golden_test("pg_returning");
+}
+
+#[test]
+fn test_sqlite_features() {
+    run_golden_test("sqlite_features");
 }
 
 fn run_golden_test(name: &str) {

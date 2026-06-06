@@ -26,10 +26,13 @@ enum Token {
     GreaterOrEqual,
     LessOrEqual,
     NotEquals,
+    Concat,
+    DoubleColon,
 }
 
 static KEYWORDS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
     [
+        // MySQL keywords (original)
         "ACCESSIBLE", "ADD", "ALL", "ALTER", "ANALYZE", "AND", "AS", "ASC", "ASENSITIVE",
         "AUTO_INCREMENT",
         "BEFORE", "BETWEEN", "BIGINT", "BINARY", "BLOB", "BOTH", "BY", "CALL", "CASCADE",
@@ -63,18 +66,123 @@ static KEYWORDS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
         "SET", "SHOW", "SIGNAL", "SMALLINT", "SPATIAL", "SPECIFIC", "SQL",
         "SQLEXCEPTION", "SQLSTATE", "SQLWARNING", "SQL_BIG_RESULT",
         "SQL_CALC_FOUND_ROWS", "SQL_SMALL_RESULT", "SSL", "STARTING", "STORED",
-        "STRAIGHT_JOIN", "SYSTEM", "TABLE", "TERMINATED", "THEN",        "TEXT", "TIME", "TIMESTAMP", "TINYBLOB",
+        "STRAIGHT_JOIN", "SYSTEM", "TABLE", "TERMINATED", "THEN",
+        "TEXT", "TIME", "TIMESTAMP", "TINYBLOB",
         "TINYINT", "TINYTEXT", "TO", "TRAILING", "TRIGGER", "TRUE", "UNDO", "UNION",
         "UNIQUE", "UNLOCK", "UNSIGNED", "UPDATE", "USAGE", "USE", "USING",
-        "UTC_DATE", "UTC_TIME", "UTC_TIMESTAMP", "VALUES",        "VARBINARY", "VARCHAR",
+        "UTC_DATE", "UTC_TIME", "UTC_TIMESTAMP",
+        "VALUES",
+        "VARBINARY", "VARCHAR",
         "VARCHARACTER", "VARYING", "VIRTUAL", "VIEW",
         "YEAR",
         "WHEN", "WHERE", "WHILE",
-        "WINDOW", "WITH", "WRITE", "XOR", "YEAR_MONTH",        // Common data types
+        "WINDOW", "WITH", "WRITE", "XOR", "YEAR_MONTH",
+        // Common data types
         "BIT", "BOOL", "BOOLEAN", "DATETIME", "DATE", "ENUM", "JSON", "SERIAL",
         "ZEROFILL",
         // Common functions to uppercase
         "CONCAT_WS", "IFNULL", "COALESCE", "NOW",
+
+        // ===== SQLite-specific keywords =====
+        "ABORT", "ATTACH", "AUTOINCREMENT", "CONFLICT", "DETACH",
+        "EXCLUSIVE", "FAIL", "IGNORE", "IMMEDIATE", "INDEXED",
+        "INSTEAD", "OID", "PLAN", "PRAGMA", "QUERY",
+        "RAISE", "REINDEX", "ROLLBACK", "ROWID", "SAVEPOINT",
+        "VACUUM", "WITHOUT",
+        // SQLite types
+        "INT", "INTEGER", "TEXT", "REAL", "BLOB", "NUMERIC",
+        // SQLite functions
+        "ABS", "CHANGES", "CHAR", "GLOB", "HEX",
+        "INSTR", "LAST_INSERT_ROWID", "LENGTH", "LIKELIHOOD", "LIKELY",
+        "LOWER", "LTRIM", "MAX", "MIN", "NULLIF",
+        "PRINTF", "QUOTE", "RANDOM", "RANDOMBLOB",
+        "ROUND", "RTRIM", "SIGN", "SUBSTR", "SUBSTRING",
+        "TRIM", "TYPEOF", "UNICODE", "UNLIKELY",
+        "UPPER", "ZEROBLOB",
+        // SQLite pragmas / misc
+        "ANALYZE", "COMMIT", "END", "TRANSACTION", "BEGIN",
+        "DEALLOCATE", "PREPARE", "EXECUTE", "NOTHING",
+
+        // ===== PostgreSQL-specific keywords =====
+        "ADMIN", "AFTER", "AGGREGATE", "ALSO", "ARRAY",
+        "ASSERTION", "ASSIGNMENT", "ASYMMETRIC", "AT", "AUTHORIZATION",
+        "BEFORE",
+        "CACHE", "CALL", "CALLED", "CATALOG", "CHAIN",
+        "CHECKPOINT", "CLASS", "CLOSE", "CLUSTER",
+        "COMMENTS", "COMMIT", "COMMITTED", "CONCURRENTLY", "CONFIGURATION",
+        "CONNECTION", "CONTENT", "CONTENTS", "CONVERSION", "COPY",
+        "COST", "CSV", "CURRENT_CATALOG", "CURRENT_ROLE", "CURRENT_SCHEMA",
+        "CYCLE",
+        "DAY", "DEALLOCATE", "DEFAULTS", "DEFERRABLE",
+        "DEFERRED", "DEFINER", "DELIMITER", "DELIMITERS", "DEPENDS",
+        "DICTIONARY", "DISABLE", "DISCARD", "DO", "DOCUMENT",
+        "DOMAIN",
+        "ENABLE", "ENCODING", "ENCRYPTED", "ENUM", "ESCAPE",
+        "EVENT", "EXCLUDE", "EXCLUDING", "EXECUTE",
+        "EXTENSION", "EXTERNAL",
+        "FAMILY", "FETCH", "FILTER", "FIRST", "FLOOR",
+        "FOLLOWING", "FORCE", "FORMAT", "FORWARD", "FREEZE",
+        "FUNCTIONS",
+        "GLOBAL", "GRANTED", "GREATEST",
+        "HANDLER", "HEADER",
+        "HOLD", "HOUR",
+        "IDENTITY", "ILIKE", "IMMUTABLE", "IMPLICIT", "IMPORT",
+        "INCLUDING", "INCREMENT", "INDEXES", "INHERIT", "INHERITS",
+        "INLINE", "INPUT", "INVOKER", "ISOLATION",
+        "ISNULL",
+        "LABEL", "LANGUAGE", "LARGE", "LAST", "LEAKPROOF",
+        "LEAST", "LEVEL", "LISTEN", "LOCAL", "LOCATION",
+        "LOCKED", "LOGGED",
+        "MAPPING", "MATERIALIZED", "METHOD", "MINUTE", "MINVALUE",
+        "MONTH", "MOVE",
+        "NAMES", "NATIONAL", "NCHAR",
+        "NEXT", "NONE", "NOTHING", "NOTIFY", "NOTNULL",
+        "NOWAIT", "NULLS",
+        "OBJECT", "OFF", "OIDS", "ONLY",
+        "OPERATOR", "OPTION", "OPTIONS", "ORDINALITY", "OTHERS",
+        "OVERLAY", "OWNED", "OWNER",
+        "PARALLEL", "PARSER", "PARTITION", "PARTITIONS", "PASSING",
+        "PASSWORD", "PLACING", "PLANS", "POLICY", "POSITION",
+        "PRECEDING", "PRESERVE", "PREPARE", "PREPARED", "PRIOR",
+        "PRIVILEGES", "PROCEDURAL", "PROCEDURES", "PROGRAM", "PUBLICATION",
+        "QUOTE",
+        "RANGE", "REASSIGN", "RECHECK", "REF", "REFERENCING",
+        "REINDEX", "RELATIVE", "RELEASE", "REPEATABLE", "REPLICA",
+        "RESET", "RESTART", "RESTRICT", "RETURNING", "RETURNS",
+        "ROLLUP", "ROUTINE", "ROUTINES",
+        "RULE",
+        "SAVEPOINT", "SCROLL", "SEARCH", "SECOND", "SECURITY",
+        "SEQUENCE", "SEQUENCES", "SERIALIZABLE", "SERVER", "SESSION",
+        "SHARE", "SIMILAR", "SIMPLE", "SKIP", "SNAPSHOT",
+        "SOME", "SPECIFICTYPE", "STANDALONE", "STATEMENT",
+        "STATISTICS", "STDIN", "STDOUT", "STORAGE", "STRICT",
+        "STRIP", "SUBSCRIPTION", "SUPPORT", "SYMMETRIC", "SYSID",
+        "TABLES", "TABLESAMPLE", "TABLESPACE", "TEMP", "TEMPORARY",
+        "THAN", "TIES", "TRANSACTION", "TRANSFORM", "TREAT",
+        "TRUNCATE", "TRUSTED", "TYPE", "TYPES",
+        "UNBOUNDED", "UNCOMMITTED", "UNENCRYPTED", "UNKNOWN", "UNLISTEN",
+        "UNLOGGED", "UNTIL",
+        "VACUUM", "VALID", "VALIDATE", "VALIDATOR", "VALUE",
+        "VARIADIC", "VERBOSE", "VIEWS", "VOLATILE",
+        "WHITESPACE", "WITHIN", "WORK", "WRAPPER",
+        "XMLAGG", "XMLATTRIBUTES", "XMLCONCAT", "XMLELEMENT",
+        "XMLFOREST", "XMLNAMESPACES", "XMLPARSE", "XMLPI", "XMLROOT",
+        "XMLSERIALIZE", "XMLTABLE",
+        "YES",
+        "ZONE",
+        // PostgreSQL types
+        "BIGSERIAL", "SMALLSERIAL", "SERIAL", "SERIAL2", "SERIAL4", "SERIAL8",
+        "UUID", "CIDR", "INET", "MACADDR",
+        "BYTEA", "MONEY", "MACADDR8",
+        "INTERVAL", "TIMETZ", "TIMESTAMPTZ",
+        // PostgreSQL functions
+        "ARRAY_AGG", "STRING_AGG",
+        "JSONB_BUILD_OBJECT",
+        "JSONB_AGG", "TO_JSONB",
+        "EXTRACT", "DATE_TRUNC", "STATEMENT_TIMESTAMP",
+        "CLOCK_TIMESTAMP",
+        "FIRST_VALUE", "LAST_VALUE", "NTH_VALUE",
+        "SPLIT_PART",
     ]
     .iter()
     .copied()
@@ -119,7 +227,7 @@ fn token_width(tok: &Token) -> usize {
         Token::Word(w) => w.len(),
         Token::Star => 1,
         Token::Comment(_) => 0,
-        Token::GreaterOrEqual | Token::LessOrEqual | Token::NotEquals => 2,
+        Token::GreaterOrEqual | Token::LessOrEqual | Token::NotEquals | Token::Concat | Token::DoubleColon => 2,
         _ => 1,
     }
 }
@@ -173,9 +281,25 @@ fn tokenize(input: &str) -> Vec<Token> {
                     i += 1;
                 }
             }
+            '|' => {
+                if i + 1 < chars.len() && chars[i + 1] == '|' {
+                    tokens.push(Token::Concat);
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            }
             '!' => {
                 if i + 1 < chars.len() && chars[i + 1] == '=' {
                     tokens.push(Token::NotEquals);
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            }
+            ':' => {
+                if i + 1 < chars.len() && chars[i + 1] == ':' {
+                    tokens.push(Token::DoubleColon);
                     i += 2;
                 } else {
                     i += 1;
@@ -280,8 +404,9 @@ fn token_upper_string(tok: &Token) -> String {
         Token::GreaterThan => ">".into(),
         Token::LessThan => "<".into(),
         Token::GreaterOrEqual => ">=".into(),
-        Token::LessOrEqual => "<=".into(),
-        Token::NotEquals => "!=".into(),
+        Token::LessOrEqual => "<=".into(),            Token::NotEquals => "!=".into(),
+        Token::Concat => "||".into(),
+        Token::DoubleColon => "::".into(),
     }
 }
 
@@ -330,6 +455,8 @@ fn tokens_upper_string(tokens: &[Token]) -> String {
             (Some(Token::LessOrEqual), Token::Word(_)) => true,
             (Some(Token::Word(_)), Token::NotEquals) => true,
             (Some(Token::NotEquals), Token::Word(_)) => true,
+            (Some(Token::Word(_)), Token::Concat) => true,
+            (Some(Token::Concat), Token::Word(_)) => true,
             _ => false,
         };
         if need_space {
@@ -740,39 +867,17 @@ fn format_create_view(tokens: &[Token], select_pos: usize) -> String {
     let select_cols = &select_tokens[1..from_pos];
     let columns = parse_select_columns(select_cols);
 
-    // Split each column at AS
-    let mut col_parts: Vec<(Vec<Token>, Option<Vec<Token>>)> = Vec::new();
-    for col in &columns {
-        let (expr, alias) = split_at_as(col);
-        col_parts.push((expr, alias));
-    }
-
-    let max_expr_width = col_parts
-        .iter()
-        .filter(|(_, alias)| alias.is_some())
-        .map(|(expr, _)| tokens_display_width(expr))
-        .max()
-        .unwrap_or(0);
-
     let mut result = prelude_str;
     result.push('\n');
     result.push_str("SELECT\n");
 
-    for (idx, (expr, alias)) in col_parts.iter().enumerate() {
-        let expr_str = tokens_upper_string(expr);
-        let last = idx == col_parts.len() - 1;
-        if let Some(alias_tokens) = alias {
-            let padded_expr = format!("{:width$}", expr_str, width = max_expr_width);
-            let alias_str = tokens_upper_string(alias_tokens);
-            if last {
-                result.push_str(&format!("    {} AS {}\n", padded_expr, alias_str));
-            } else {
-                result.push_str(&format!("    {} AS {},\n", padded_expr, alias_str));
-            }
-        } else if last {
-            result.push_str(&format!("    {}\n", expr_str));
+    for (idx, col_tokens) in columns.iter().enumerate() {
+        let last = idx == columns.len() - 1;
+        let col_str = format_view_column(col_tokens);
+        if last {
+            result.push_str(&format!("    {}\n", col_str));
         } else {
-            result.push_str(&format!("    {},\n", expr_str));
+            result.push_str(&format!("    {},\n", col_str));
         }
     }
 
@@ -784,6 +889,52 @@ fn format_create_view(tokens: &[Token], select_pos: usize) -> String {
     // Ensure semicolon
     if matches!(tokens.last(), Some(Token::Semicolon)) && !result.ends_with(';') {
         result.push(';');
+    }
+
+    result
+}
+
+fn format_view_column(tokens: &[Token]) -> String {
+    // Check if this column expression contains || operators
+    let has_concat = tokens.iter().any(|t| matches!(t, Token::Concat));
+    if !has_concat {
+        return tokens_upper_string(tokens);
+    }
+
+    // Split at || to get value segments: [folder], ['__'], [filename], ...
+    let mut segments = Vec::new();
+    let mut current = Vec::new();
+    for tok in tokens {
+        if matches!(tok, Token::Concat) {
+            if !current.is_empty() {
+                segments.push(std::mem::take(&mut current));
+            }
+        } else {
+            current.push(tok.clone());
+        }
+    }
+    if !current.is_empty() {
+        segments.push(current);
+    }
+
+    // Pair consecutive value segments as (a || b), with trailing || on each
+    // pair except the last one
+    let mut result = String::new();
+    let mut i = 0;
+    while i < segments.len() {
+        let first_str = tokens_upper_string(&segments[i]);
+        if i + 1 < segments.len() {
+            let second_str = tokens_upper_string(&segments[i + 1]);
+            result.push_str(&format!("{} || {}", first_str, second_str));
+            if i + 2 < segments.len() {
+                result.push_str(" ||");
+                result.push_str("\n    ");
+            }
+            i += 2;
+        } else {
+            result.push_str(&first_str);
+            i += 1;
+        }
     }
 
     result
@@ -917,22 +1068,6 @@ fn parse_select_columns(tokens: &[Token]) -> Vec<Vec<Token>> {
     }
 
     columns
-}
-
-fn split_at_as(tokens: &[Token]) -> (Vec<Token>, Option<Vec<Token>>) {
-    for i in 0..tokens.len() {
-        if let Token::Word(w) = &tokens[i] {
-            if w.to_uppercase() == "AS" {
-                let alias = if i + 1 < tokens.len() {
-                    Some(tokens[i + 1..].to_vec())
-                } else {
-                    Some(vec![])
-                };
-                return (tokens[..i].to_vec(), alias);
-            }
-        }
-    }
-    (tokens.to_vec(), None)
 }
 
 fn find_matching_paren(tokens: &[Token], open_idx: usize) -> Option<usize> {
@@ -1171,6 +1306,8 @@ fn format_generic(tokens: &[Token]) -> String {
             (Some(Token::LessOrEqual), Token::Word(_)) => true,
             (Some(Token::Word(_)), Token::NotEquals) => true,
             (Some(Token::NotEquals), Token::Word(_)) => true,
+            (Some(Token::Word(_)), Token::Concat) => true,
+            (Some(Token::Concat), Token::Word(_)) => true,
             _ => false,
         };
 
