@@ -844,6 +844,19 @@ fn format_drop(tokens: &[Token]) -> String {
     tokens_upper_string(tokens)
 }
 
+fn find_as_position(tokens: &[Token]) -> Option<usize> {
+    let mut depth = 0;
+    for (i, tok) in tokens.iter().enumerate() {
+        match tok {
+            Token::OpenParen => depth += 1,
+            Token::CloseParen => depth -= 1,
+            Token::Word(w) if depth == 0 && w.to_uppercase() == "AS" => return Some(i),
+            _ => {}
+        }
+    }
+    None
+}
+
 fn format_create_view(tokens: &[Token], select_pos: usize) -> String {
     let prelude = &tokens[..select_pos];
     let select_tokens = &tokens[select_pos..];
@@ -867,13 +880,40 @@ fn format_create_view(tokens: &[Token], select_pos: usize) -> String {
     let select_cols = &select_tokens[1..from_pos];
     let columns = parse_select_columns(select_cols);
 
+    // Calculate max expression width before AS for vertical alignment
+    let max_expr_width = {
+        let mut max_width = 0;
+        for col in &columns {
+            if let Some(as_pos) = find_as_position(col) {
+                let width = tokens_display_width(&col[..as_pos]);
+                if width > max_width {
+                    max_width = width;
+                }
+            }
+        }
+        max_width
+    };
+
     let mut result = prelude_str;
     result.push('\n');
     result.push_str("SELECT\n");
 
     for (idx, col_tokens) in columns.iter().enumerate() {
         let last = idx == columns.len() - 1;
-        let col_str = format_view_column(col_tokens);
+        let has_concat = col_tokens.iter().any(|t| matches!(t, Token::Concat));
+
+        let col_str = if has_concat {
+            // Concat columns use their own multi-line formatting
+            format_view_column(col_tokens)
+        } else if let Some(as_pos) = find_as_position(col_tokens) {
+            // Align AS keyword vertically with other columns that have AS
+            let expr_str = tokens_upper_string(&col_tokens[..as_pos]);
+            let rest_str = tokens_upper_string(&col_tokens[as_pos..]);
+            format!("{:width$} {}", expr_str, rest_str, width = max_expr_width)
+        } else {
+            tokens_upper_string(col_tokens)
+        };
+
         if last {
             result.push_str(&format!("    {}\n", col_str));
         } else {
