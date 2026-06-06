@@ -1,6 +1,6 @@
 CREATE VIEW active_users AS
 SELECT
-    u.id AS user_id,
+    u.id   AS user_id,
     u.name AS user_name,
     o.total
 FROM users u
