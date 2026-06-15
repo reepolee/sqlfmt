@@ -148,7 +148,7 @@ fi
 tag="v$version"
 
 if [ "$new_commits" -gt 0 ]; then
-	# Code has changed since last release → bump version
+	# Code has changed since last release → compute next version
 	if [ "${minor_bump:-false}" = true ]; then
 		new_version=$(bump_minor "$version")
 		bump_type="minor"
@@ -156,22 +156,35 @@ if [ "$new_commits" -gt 0 ]; then
 		new_version=$(bump_patch "$version")
 		bump_type="patch"
 	fi
-	echo "═══ sqlfmt release $new_version for $os ($arch) ═══"
-	echo "  (Bumping $bump_type from $version → $new_version, $new_commits commits since $latest_tag)"
+	new_tag="v$new_version"
 
-	# Update Cargo.toml
-	sed -i '' "s/version = \"$version\"/version = \"$new_version\"/" Cargo.toml 2>/dev/null || \
-	sed -i "s/version = \"$version\"/version = \"$new_version\"/" Cargo.toml
+	# If the bumped tag already exists on remote, another machine already bumped.
+	# Skip the bump and just upload our binary to the existing release.
+	if git ls-remote --tags origin "refs/tags/$new_tag" 2>/dev/null | grep -q .; then
+		echo "═══ sqlfmt release $new_version for $os ($arch) ═══"
+		echo "  (Tag $new_tag already exists on remote. Uploading binary only.)"
+		version="$new_version"
+		tag="$new_tag"
+		do_bump=false
+	else
+		echo "═══ sqlfmt release $new_version for $os ($arch) ═══"
+		echo "  (Bumping $bump_type from $version → $new_version, $new_commits commits since $latest_tag)"
 
-	version="$new_version"
-	tag="v$version"
-	do_bump=true
+		# Update Cargo.toml
+		sed -i '' "s/version = \"$version\"/version = \"$new_version\"/" Cargo.toml 2>/dev/null || \
+		sed -i "s/version = \"$version\"/version = \"$new_version\"/" Cargo.toml
+
+		version="$new_version"
+		tag="$new_tag"
+		do_bump=true
+	fi
 else
 	# No code changes → just upload the binary
 	echo "═══ sqlfmt release $version for $os ($arch) ═══"
 	echo "  (No new commits since $latest_tag. Uploading binary only.)"
 	do_bump=false
 fi
+
 
 # ──────────────────────────────────────────────
 # Run tests
@@ -217,11 +230,11 @@ else
 	echo "  Created tag $tag locally."
 fi
 
-# Push tag and (if bumped) the version bump commit together
-echo "  Pushing tag $tag to origin..."
-git push origin "$tag"
-
+# Push tag and version bump commit (first machine only — subsequent machines
+# upload directly to the existing GitHub Release without pushing)
 if [ "$do_bump" = true ]; then
+	echo "  Pushing tag $tag to origin..."
+	git push origin "$tag"
 	echo "  Pushing version bump commit..."
 	git push origin HEAD
 fi
@@ -247,6 +260,14 @@ else
 		--notes "Release $tag" \
 		$draft_flag
 fi
+
+# ──────────────────────────────────────────────
+# Clean up binary artifact
+# ──────────────────────────────────────────────
+
+echo ""
+rm -f "./$binary_name"
+echo "  Cleaned up $binary_name"
 
 # ──────────────────────────────────────────────
 # Install locally (to PATH)

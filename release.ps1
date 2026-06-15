@@ -93,7 +93,7 @@ $tag = "v$version"
 $doBump = $false
 
 if ($newCommits -gt 0) {
-    # Code has changed since last release → bump version
+    # Code has changed since last release → compute next version
     $parts = $version -split '\.'
     if ($Minor) {
         $newVersion = "$($parts[0]).$([int]$parts[1] + 1).0"
@@ -102,17 +102,29 @@ if ($newCommits -gt 0) {
         $newVersion = "$($parts[0]).$($parts[1]).$([int]$parts[2] + 1)"
         $bumpType = "patch"
     }
+    $newTag = "v$newVersion"
 
-    Write-Host "═══ sqlfmt release $newVersion for Windows ═══"
-    Write-Host "  (Bumping $bumpType from $version -> $newVersion, $newCommits commits since $latestTag)"
+    # If the bumped tag already exists on remote, another machine already bumped.
+    # Skip the bump and just upload our binary to the existing release.
+    $tagExists = git ls-remote --tags origin "refs/tags/$newTag" 2>$null | Select-String -Pattern "refs/tags/$newTag" -SimpleMatch
+    if ($tagExists) {
+        Write-Host "═══ sqlfmt release $newVersion for Windows ═══"
+        Write-Host "  (Tag $newTag already exists on remote. Uploading binary only.)"
+        $version = $newVersion
+        $tag = $newTag
+        $doBump = $false
+    } else {
+        Write-Host "═══ sqlfmt release $newVersion for Windows ═══"
+        Write-Host "  (Bumping $bumpType from $version -> $newVersion, $newCommits commits since $latestTag)"
 
-    $cargoContent = Get-Content "Cargo.toml" -Raw
-    $cargoContent = $cargoContent -replace 'version = "\d+\.\d+\.\d+"', "version = `"$newVersion`""
-    Set-Content "Cargo.toml" -Value $cargoContent
+        $cargoContent = Get-Content "Cargo.toml" -Raw
+        $cargoContent = $cargoContent -replace 'version = "\d+\.\d+\.\d+"', "version = `"$newVersion`""
+        Set-Content "Cargo.toml" -Value $cargoContent
 
-    $version = $newVersion
-    $tag = "v$version"
-    $doBump = $true
+        $version = $newVersion
+        $tag = $newTag
+        $doBump = $true
+    }
 } else {
     # No code changes → just upload the binary
     Write-Host "═══ sqlfmt release $version for Windows ═══"
@@ -153,11 +165,11 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "  Created tag $tag locally."
 }
 
-# Push tag and (if bumped) the version bump commit together
-Write-Host "  Pushing tag $tag to origin..."
-git push origin $tag
-
+# Push tag and version bump commit (first machine only — subsequent machines
+# upload directly to the existing GitHub Release without pushing)
 if ($doBump) {
+    Write-Host "  Pushing tag $tag to origin..."
+    git push origin $tag
     Write-Host "  Pushing version bump commit..."
     git push origin HEAD
 }
@@ -190,6 +202,14 @@ if ($LASTEXITCODE -eq 0) {
     }
     gh @releaseArgs
 }
+
+# ──────────────────────────────────────────────
+# Clean up binary artifact
+# ──────────────────────────────────────────────
+
+Write-Host ""
+Remove-Item ".\$binaryName" -Force -ErrorAction SilentlyContinue
+Write-Host "  Cleaned up $binaryName"
 
 # ──────────────────────────────────────────────
 # Install locally (to PATH)
