@@ -1,3 +1,5 @@
+<img src="/github-reepolee.svg" style="margin-bottom:1rem; width:200px">
+
 # sqlfmt
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
