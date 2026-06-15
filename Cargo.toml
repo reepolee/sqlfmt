@@ -1,9 +1,10 @@
 [package]
 name = "sqlfmt"
-version = "1.1.7"
+version = "1.1.8"
 edition = "2021"
 license = "MIT"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
+
 
