@@ -217,22 +217,20 @@ if [ "$do_bump" = true ]; then
 fi
 
 # ──────────────────────────────────────────────
-# Create and push git tag
+# Create and push git tag (first machine only)
 # ──────────────────────────────────────────────
 
-echo ""
-echo "→ Tagging $tag..."
-
-if git rev-parse "$tag" >/dev/null 2>&1; then
-	echo "  Tag $tag already exists locally."
-else
-	git tag "$tag"
-	echo "  Created tag $tag locally."
-fi
-
-# Push tag and version bump commit (first machine only — subsequent machines
-# upload directly to the existing GitHub Release without pushing)
 if [ "$do_bump" = true ]; then
+	echo ""
+	echo "→ Tagging $tag..."
+
+	if git rev-parse "$tag" >/dev/null 2>&1; then
+		echo "  Tag $tag already exists locally."
+	else
+		git tag "$tag"
+		echo "  Created tag $tag locally."
+	fi
+
 	echo "  Pushing tag $tag to origin..."
 	git push origin "$tag"
 	echo "  Pushing version bump commit..."
@@ -267,7 +265,8 @@ fi
 
 echo ""
 rm -f "./$binary_name"
-echo "  Cleaned up $binary_name"
+rm -f Cargo.lock
+echo "  Cleaned up $binary_name and Cargo.lock"
 
 # ──────────────────────────────────────────────
 # Install locally (to PATH)

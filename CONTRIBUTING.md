@@ -147,13 +147,26 @@ When adding features or fixing bugs, include test cases that cover:
 
 ## Release Checklist
 
-Each build machine runs its own release script after code changes are pushed. The first machine to run bumps the version, creates the GitHub Release tag, and uploads its binary. Subsequent machines detect the existing release and upload their platform's binary.
+After code changes are pushed, run the release script once on each platform. The first machine to run bumps the version, commits the change, tags the release, and pushes to GitHub. Subsequent machines detect that the release already exists and only build and upload their platform's binary — no local repo changes.
 
 ### Workflow (run on each machine after pushing code)
 
-1. **macOS (first):** `bash release.sh` — bumps version (patch), creates tag + GitHub Release, uploads macOS binary
-2. **Linux:** `bash release.sh` — builds and uploads Linux binary to the existing release
-3. **Windows:** `.\release.ps1` — builds and uploads Windows binary to the existing release
+1. **First platform (any OS):** `bash release.sh` (or `.\release.ps1`) — bumps version (patch by default), commits, tags, pushes, builds, uploads binary, cleans up artifacts
+2. **Second platform:** `bash release.sh` — detects release already exists, builds and uploads binary only (no git changes)
+3. **Third platform:** `.\release.ps1` — same: uploads binary only (no git changes)
+
+### What each machine does
+
+| Step | First machine | Subsequent machines |
+|------|---------------|-------------------|
+| Detect changes | Computes next version | Sees tag exists on remote |
+| Update Cargo.toml | Bumps version | No change |
+| Git commit/tag/push | Yes | Skipped entirely |
+| Run tests | `cargo test` | `cargo test` |
+| Build | `cargo build --release` | `cargo build --release` |
+| GitHub Release | Creates & uploads | Uploads to existing |
+| Clean up artifacts | Removes binary + Cargo.lock | Removes binary + Cargo.lock |
+| Local install | Copies to `~/.local/bin/` | Copies to `~/.local/bin/` |
 
 ### Flags
 
@@ -169,7 +182,7 @@ Each build machine runs its own release script after code changes are pushed. Th
 - git
 - Rust toolchain
 
-The `release.sh` script automatically runs `cargo test` before building, so you don't need to do it manually.
+The script automatically runs `cargo test` before building, so you don't need to do it manually.
 
 ### Cross-compilation prerequisites
 

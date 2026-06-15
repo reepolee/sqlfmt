@@ -152,22 +152,20 @@ if ($doBump) {
 }
 
 # ──────────────────────────────────────────────
-# Create and push git tag
+# Create and push git tag (first machine only)
 # ──────────────────────────────────────────────
 
-Write-Host "`n→ Tagging $tag..."
-
-$tagLocal = git rev-parse $tag 2>$null
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "  Tag $tag already exists locally."
-} else {
-    git tag $tag
-    Write-Host "  Created tag $tag locally."
-}
-
-# Push tag and version bump commit (first machine only — subsequent machines
-# upload directly to the existing GitHub Release without pushing)
 if ($doBump) {
+    Write-Host "`n→ Tagging $tag..."
+
+    $tagLocal = git rev-parse $tag 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "  Tag $tag already exists locally."
+    } else {
+        git tag $tag
+        Write-Host "  Created tag $tag locally."
+    }
+
     Write-Host "  Pushing tag $tag to origin..."
     git push origin $tag
     Write-Host "  Pushing version bump commit..."
@@ -209,7 +207,8 @@ if ($LASTEXITCODE -eq 0) {
 
 Write-Host ""
 Remove-Item ".\$binaryName" -Force -ErrorAction SilentlyContinue
-Write-Host "  Cleaned up $binaryName"
+Remove-Item "Cargo.lock" -Force -ErrorAction SilentlyContinue
+Write-Host "  Cleaned up $binaryName and Cargo.lock"
 
 # ──────────────────────────────────────────────
 # Install locally (to PATH)
