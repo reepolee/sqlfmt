@@ -25,6 +25,12 @@ fn test_create_view_sqlite() {
     run_golden_test("create_view_sqlite");
 }
 
+
+#[test]
+fn test_create_view_movies() {
+    run_golden_test("create_view_movies");
+}
+
 #[test]
 fn test_insert_short() {
     run_golden_test("insert_short");

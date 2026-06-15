@@ -857,6 +857,14 @@ fn find_as_position(tokens: &[Token]) -> Option<usize> {
     None
 }
 
+/// Returns true if the tokens represent a simple column expression (just identifiers and dots),
+/// meaning it should participate in AS-alignment width calculation.
+fn is_simple_expression(tokens: &[Token]) -> bool {
+    tokens
+        .iter()
+        .all(|t| matches!(t, Token::Word(_) | Token::Dot))
+}
+
 fn format_create_view(tokens: &[Token], select_pos: usize) -> String {
     let prelude = &tokens[..select_pos];
     let select_tokens = &tokens[select_pos..];
@@ -880,14 +888,19 @@ fn format_create_view(tokens: &[Token], select_pos: usize) -> String {
     let select_cols = &select_tokens[1..from_pos];
     let columns = parse_select_columns(select_cols);
 
-    // Calculate max expression width before AS for vertical alignment
+    // Calculate max expression width before AS for vertical alignment.
+    // Only simple expressions (plain column refs) participate in alignment;
+    // complex expressions like CONCAT(...), COALESCE(...), etc. just flow naturally.
     let max_expr_width = {
         let mut max_width = 0;
         for col in &columns {
             if let Some(as_pos) = find_as_position(col) {
-                let width = tokens_display_width(&col[..as_pos]);
-                if width > max_width {
-                    max_width = width;
+                let expr = &col[..as_pos];
+                if is_simple_expression(expr) {
+                    let width = tokens_display_width(expr);
+                    if width > max_width {
+                        max_width = width;
+                    }
                 }
             }
         }
@@ -906,10 +919,16 @@ fn format_create_view(tokens: &[Token], select_pos: usize) -> String {
             // Concat columns use their own multi-line formatting
             format_view_column(col_tokens)
         } else if let Some(as_pos) = find_as_position(col_tokens) {
-            // Align AS keyword vertically with other columns that have AS
-            let expr_str = tokens_upper_string(&col_tokens[..as_pos]);
+            let expr = &col_tokens[..as_pos];
+            let expr_str = tokens_upper_string(expr);
             let rest_str = tokens_upper_string(&col_tokens[as_pos..]);
-            format!("{:width$} {}", expr_str, rest_str, width = max_expr_width)
+            if is_simple_expression(expr) {
+                // Align AS keyword vertically with other simple columns
+                format!("{:width$} {}", expr_str, rest_str, width = max_expr_width)
+            } else {
+                // Complex expressions (CONCAT, COALESCE, etc.) just flow naturally
+                format!("{} {}", expr_str, rest_str)
+            }
         } else {
             tokens_upper_string(col_tokens)
         };
