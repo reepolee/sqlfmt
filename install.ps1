@@ -1,68 +1,68 @@
-$APP_NAME = "sqlfmt"
-$InstallDir = Join-Path $HOME "bin"
-$BinName = "$APP_NAME.exe"
-$Target = Join-Path $InstallDir $BinName
+# Install sqlfmt from the latest GitHub Release.
+# Usage: irm https://raw.githubusercontent.com/reepolee/sqlfmt/main/install.ps1 | iex
 
-function Detect-BinName {
-	# Use PROCESSOR_ARCHITEW6432 when running under WOW64 (32-bit on 64-bit)
-	$arch = if ($env:PROCESSOR_ARCHITEW6432) {
-		$env:PROCESSOR_ARCHITEW6432
-	} else {
-		$env:PROCESSOR_ARCHITECTURE
-	}
+$AppName = "sqlfmt"
+$Owner = "reepolee"
+$Repo = "sqlfmt"
+$InstallDir = if ($env:INSTALL_DIR) { $env:INSTALL_DIR } else { Join-Path $HOME "bin" }
 
-	switch ($arch) {
-		"AMD64" {
-			return "${APP_NAME}-windows-x64.exe"
-		}
-		"ARM64" {
-			return "${APP_NAME}-windows-arm64.exe"
-		}
-		default {
-			Write-Host "Unsupported Windows architecture: $arch"
-			exit 1
-		}
-	}
+# ──────────────────────────────────────────────
+# Detect platform
+# ──────────────────────────────────────────────
+
+$arch = $env:PROCESSOR_ARCHITECTURE
+switch ($arch) {
+    'AMD64' { $assetName = "$AppName-windows-x64.exe" }
+    'ARM64' { $assetName = "$AppName-windows-arm64.exe" }
+    default { Write-Error "Unsupported architecture: $arch"; exit 1 }
 }
 
-$SourceBin = Detect-BinName
+# ──────────────────────────────────────────────
+# Download
+# ──────────────────────────────────────────────
 
-if (!(Test-Path ".\$SourceBin")) {
-	Write-Host "Binary not found: .\$SourceBin"
-	Write-Host "Run .\build.ps1 first to build the binary."
-	exit 1
+$downloadUrl = "https://github.com/$Owner/$Repo/releases/latest/download/$assetName"
+$tmpPath = Join-Path $env:TEMP $assetName
+
+Write-Host "→ Downloading $assetName ..."
+try {
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $tmpPath -UseBasicParsing
+} catch {
+    Write-Error "Download failed: $_"
+    exit 1
 }
+
+# ──────────────────────────────────────────────
+# Install
+# ──────────────────────────────────────────────
 
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+$target = Join-Path $InstallDir "$AppName.exe"
+Copy-Item $tmpPath $target -Force
+Remove-Item $tmpPath -Force
 
-Copy-Item ".\$SourceBin" $Target -Force
+Write-Host "  Installed to $target"
 
-Write-Host "Installed:"
-Write-Host "  .\$SourceBin → $Target"
-Write-Host ""
+# ──────────────────────────────────────────────
+# PATH check
+# ──────────────────────────────────────────────
 
-$UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$paths = $userPath -split ";"
 
-$Paths = $UserPath -split ";"
+if ($paths -notcontains $InstallDir) {
+    $newPath = if ([string]::IsNullOrWhiteSpace($userPath)) {
+        $InstallDir
+    } else {
+        "$userPath;$InstallDir"
+    }
 
-if ($Paths -notcontains $InstallDir) {
-	$NewPath = if ([string]::IsNullOrWhiteSpace($UserPath)) {
-		$InstallDir
-	} else {
-		"$UserPath;$InstallDir"
-	}
-
-	[Environment]::SetEnvironmentVariable(
-		"Path",
-		$NewPath,
-		"User"
-	)
-
-	Write-Host "Added $InstallDir to user PATH"
-} else {
-	Write-Host "$InstallDir already in PATH"
+    [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+    Write-Host "  Added $InstallDir to user PATH"
+    Write-Host ""
+    Write-Host "Restart your terminal to use $AppName"
 }
 
-Write-Host "Installed to $Target"
 Write-Host ""
-Write-Host "Restart terminal to use sqlfmt"
+Write-Host "✅ sqlfmt installed!"
+& $target --version

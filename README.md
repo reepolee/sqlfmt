@@ -20,22 +20,36 @@ A MySQL SQL formatter written in Rust. Reads SQL from stdin or a file, and write
 
 ## Installation
 
-### macOS / Linux
+### Quick install
+
+**macOS / Linux:**
 
 ```bash
-git clone <repo-url>
-cd sqlfmt
-chmod +x build.sh install.sh
-
-# Build for your native platform
-./build.sh native
-
-# Install
-./install.sh
-source ~/.zshrc  # or restart terminal
+curl -fsSL https://raw.githubusercontent.com/reepolee/sqlfmt/main/install.sh | bash
 ```
 
-On **macOS / Linux**, the build script supports these targets:
+**Windows:**
+
+```powershell
+irm https://raw.githubusercontent.com/reepolee/sqlfmt/main/install.ps1 | iex
+```
+
+The script detects your OS and architecture, downloads the correct binary from the latest GitHub Release, and adds it to your PATH.
+
+Or download a binary directly from the [latest release](https://github.com/reepolee/sqlfmt/releases/latest).
+
+### Build from source
+
+Requires [Rust](https://rustup.rs/) (edition 2021).
+
+```bash
+cargo build --release
+# Binary at ./target/release/sqlfmt
+```
+
+For cross-platform builds, use the build scripts:
+
+**macOS / Linux:**
 
 ```bash
 ./build.sh native       # Build for current macOS architecture (arm64)
@@ -43,6 +57,13 @@ On **macOS / Linux**, the build script supports these targets:
 ./build.sh universal    # Create macOS universal binary (arm64 + x64)
 ./build.sh linux        # Cross-compile for Linux x64 (requires toolchain)
 ./build.sh all          # Build all supported targets (macOS + Linux)
+```
+
+**Windows:**
+
+```powershell
+.\build.ps1
+# Produces sqlfmt-windows-x64.exe
 ```
 
 ### Prerequisites for Linux cross-compilation on macOS
@@ -57,29 +78,6 @@ brew install x86_64-unknown-linux-gnu
 ```
 
 The build script checks for these dependencies and prints helpful error messages if anything is missing.
-
-The install script copies the platform-specific binary to `~/.local/bin/` and adds it to your PATH.
-
-### Windows (PowerShell)
-
-```powershell
-# Build
-.\build.ps1
-# Produces sqlfmt-windows-x64.exe
-
-# Install
-.\install.ps1
-# Restart terminal
-```
-
-Windows builds are done natively on Windows — cross-compilation from macOS is not supported.
-
-### Manual
-
-```bash
-cargo build --release
-cp ./target/release/sqlfmt /usr/local/bin/
-```
 
 ## Usage
 
@@ -282,11 +280,4 @@ cargo test
 
 Test inputs and expected outputs live in the [`tests/data/`](tests/data) directory. Each test case has an `.input.sql` file and a matching `.golden.sql` file with the expected formatted output. To add a new test, create a pair of files and add a test function in [`tests/integration_test.rs`](tests/integration_test.rs).
 
-## Building from source
 
-Requires [Rust](https://rustup.rs/) (edition 2021).
-
-```bash
-cargo build --release
-# Binary at ./target/release/sqlfmt
-```

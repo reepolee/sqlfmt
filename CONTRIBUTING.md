@@ -21,13 +21,13 @@ This project is governed by a simple principle: **be respectful and constructive
 
 ## Getting Help
 
-If you have a question about using sqlfmt, open a [GitHub Discussion](https://github.com/ales/sqlfmt/discussions) rather than an issue.
+If you have a question about using sqlfmt, open a [GitHub Discussion](https://github.com/reepolee/sqlfmt/discussions) rather than an issue.
 
 ## Reporting Bugs
 
 Before reporting a bug, please:
 
-1. Check the [existing issues](https://github.com/ales/sqlfmt/issues) to see if it has already been reported.
+1. Check the [existing issues](https://github.com/reepolee/sqlfmt/issues) to see if it has already been reported.
 2. Try to reproduce the bug with the latest version.
 3. Include a minimal SQL example that triggers the bug — both the input and the unexpected output.
 
@@ -147,45 +147,29 @@ When adding features or fixing bugs, include test cases that cover:
 
 ## Release Checklist
 
-- [ ] **Bump version** — update the version in `Cargo.toml`:
+Each build machine runs its own release script after code changes are pushed. The first machine to run bumps the version, creates the GitHub Release tag, and uploads its binary. Subsequent machines detect the existing release and upload their platform's binary.
 
-   ```toml
-   [package]
-   name = "sqlfmt"
-   version = "X.Y.Z"
-   ```
+### Workflow (run on each machine after pushing code)
 
-- [ ] **Build all targets** — run the platform-appropriate command:
+1. **macOS (first):** `bash release.sh` — bumps version (patch), creates tag + GitHub Release, uploads macOS binary
+2. **Linux:** `bash release.sh` — builds and uploads Linux binary to the existing release
+3. **Windows:** `.\release.ps1` — builds and uploads Windows binary to the existing release
 
-   | Platform | Command | Produces |
-   |----------|---------|----------|
-   | macOS | `./build.sh all` | macOS arm64, x64, universal + Linux x64 |
-   | Windows | `.\build.ps1` | Windows x64 |
+### Flags
 
-- [ ] **Run tests** — ensure all integration tests pass:
+| Flag | Description |
+|------|-------------|
+| `--draft` / `-Draft` | Create the release as a draft (default: published) |
+| `--minor` / `-Minor` | Bump the minor version instead of patch (default: patch) |
+| `--force` / `-Force` | Skip version mismatch check (use when pushing ahead of remote) |
 
-   ```bash
-   cargo test
-   ```
+### Prerequisites
 
-- [ ] **Stage all files** — source, build scripts, config, and binaries:
+- [gh CLI](https://cli.github.com/) — authenticated via `gh auth login`
+- git
+- Rust toolchain
 
-   ```bash
-   git add -A
-   ```
-
-- [ ] **Commit and tag** — commit with the version, then tag:
-
-   ```bash
-   git commit -m "vX.Y.Z"
-   git tag vX.Y.Z
-   ```
-
-- [ ] **Push** — push the commit and tag together:
-
-   ```bash
-   git push origin main --tags
-   ```
+The `release.sh` script automatically runs `cargo test` before building, so you don't need to do it manually.
 
 ### Cross-compilation prerequisites
 

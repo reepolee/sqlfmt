@@ -113,4 +113,3 @@ case "${1:-native}" in
 		;;
 esac
 
-rm -rf ./target

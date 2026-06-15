@@ -1,96 +1,99 @@
 #!/usr/bin/env bash
+# Install sqlfmt from the latest GitHub Release.
+# Usage: curl -fsSL https://raw.githubusercontent.com/reepolee/sqlfmt/main/install.sh | bash
 
 set -euo pipefail
 
-APP_NAME="sqlfmt"
-INSTALL_DIR="$HOME/.local/bin"
-TARGET="$INSTALL_DIR/$APP_NAME"
+APP="sqlfmt"
+OWNER="reepolee"
+REPO="sqlfmt"
+INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
 
-detect_bin_name() {
-	local os
-	local arch
+# ──────────────────────────────────────────────
+# Detect platform
+# ──────────────────────────────────────────────
 
-	os="$(uname -s)"
-	arch="$(uname -m)"
+os="$(uname -s)"
+arch="$(uname -m)"
 
-	case "$os" in
-		Darwin)
-			case "$arch" in
-				arm64|aarch64)
-					echo "${APP_NAME}-macos-arm64"
-					;;
-				x86_64)
-					echo "${APP_NAME}-macos-x64"
-					;;
-				*)
-					echo "Unsupported macOS architecture: $arch"
-					exit 1
-					;;
-			esac
-			;;
-
-		Linux)
-			case "$arch" in
-				x86_64|amd64)
-					echo "${APP_NAME}-linux-x64"
-					;;
-				aarch64|arm64)
-					echo "${APP_NAME}-linux-arm64"
-					;;
-				*)
-					echo "Unsupported Linux architecture: $arch"
-					exit 1
-					;;
-			esac
-			;;
-
-		*)
-			echo "Unsupported operating system: $os"
-			exit 1
-			;;
-	esac
-}
-
-BIN_NAME="$(detect_bin_name)"
-
-if [ ! -f "./$BIN_NAME" ]; then
-	echo "Binary not found: ./$BIN_NAME"
-	exit 1
-fi
-
-mkdir -p "$INSTALL_DIR"
-
-cp "./$BIN_NAME" "$TARGET"
-chmod +x "$TARGET"
-
-case ":$PATH:" in
-	*":$INSTALL_DIR:"*)
-		echo "$INSTALL_DIR already in PATH"
+case "$os" in
+	Darwin)
+		case "$arch" in
+			arm64|aarch64) asset_name="${APP}-macos-arm64" ;;
+			x86_64)       asset_name="${APP}-macos-x64" ;;
+			*)            echo "Unsupported macOS architecture: $arch" >&2; exit 1 ;;
+		esac
 		;;
-
+	Linux)
+		case "$arch" in
+			x86_64|amd64)  asset_name="${APP}-linux-x64" ;;
+			arm64|aarch64) asset_name="${APP}-linux-arm64" ;;
+			*)             echo "Unsupported Linux architecture: $arch" >&2; exit 1 ;;
+		esac
+		;;
 	*)
-		SHELL_RC=""
-
-		if [ -n "${ZSH_VERSION:-}" ]; then
-			SHELL_RC="$HOME/.zshrc"
-		elif [ -n "${BASH_VERSION:-}" ]; then
-			SHELL_RC="$HOME/.bashrc"
-		else
-			SHELL_RC="$HOME/.profile"
-		fi
-
-		if ! grep -Fq "$INSTALL_DIR" "$SHELL_RC" 2>/dev/null; then
-			echo "" >> "$SHELL_RC"
-			echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "$SHELL_RC"
-
-			echo "Added $INSTALL_DIR to PATH in $SHELL_RC"
-		fi
+		echo "Unsupported OS: $os" >&2
+		echo "Windows users: run the PowerShell install script instead:" >&2
+		echo "  irm https://raw.githubusercontent.com/$OWNER/$REPO/main/install.ps1 | iex" >&2
+		exit 1
 		;;
 esac
 
-echo "Installed:"
-echo "  ./$BIN_NAME → $TARGET"
+# ──────────────────────────────────────────────
+# Download
+# ──────────────────────────────────────────────
+
+download_url="https://github.com/$OWNER/$REPO/releases/latest/download/$asset_name"
+
+echo "→ Downloading $asset_name..."
+if command -v curl &>/dev/null; then
+	curl -fsSL "$download_url" -o "/tmp/$asset_name"
+elif command -v wget &>/dev/null; then
+	wget -q "$download_url" -O "/tmp/$asset_name"
+else
+	echo "ERROR: Neither curl nor wget found." >&2
+	exit 1
+fi
+
+chmod +x "/tmp/$asset_name"
+
+# ──────────────────────────────────────────────
+# Install
+# ──────────────────────────────────────────────
+
+mkdir -p "$INSTALL_DIR"
+cp "/tmp/$asset_name" "$INSTALL_DIR/$APP"
+rm "/tmp/$asset_name"
+
+echo "  Installed to $INSTALL_DIR/$APP"
+
+# ──────────────────────────────────────────────
+# PATH check
+# ──────────────────────────────────────────────
+
+if ! echo ":$PATH:" | grep -q ":$INSTALL_DIR:"; then
+	shell_rc=""
+	if [ -n "${ZSH_VERSION:-}" ]; then
+		shell_rc="$HOME/.zshrc"
+	elif [ -n "${BASH_VERSION:-}" ]; then
+		shell_rc="$HOME/.bashrc"
+	else
+		shell_rc="$HOME/.profile"
+	fi
+
+	if ! grep -Fq "$INSTALL_DIR" "$shell_rc" 2>/dev/null; then
+		{
+			echo
+			echo "export PATH=\"$INSTALL_DIR:\$PATH\""
+		} >> "$shell_rc"
+		echo "  Added $INSTALL_DIR to PATH in $shell_rc"
+	fi
+
+	echo ""
+	echo "Restart your shell or run:"
+	echo "  export PATH=\"$INSTALL_DIR:\$PATH\""
+fi
 
 echo ""
-echo "Restart shell or run:"
-echo "export PATH=\"$INSTALL_DIR:\$PATH\""
+echo "✅ sqlfmt installed!"
+"$INSTALL_DIR/$APP" --version
