@@ -42,44 +42,12 @@ Or download a binary directly from the [latest release](https://github.com/reepo
 
 ### Build from source
 
-Requires [Rust](https://rustup.rs/) (edition 2021).
+Requires [Rust](https://rustup.rs/).
 
 ```bash
 cargo build --release
 # Binary at ./target/release/sqlfmt
 ```
-
-For cross-platform builds, use the build scripts:
-
-**macOS / Linux:**
-
-```bash
-./build.sh native       # Build for current macOS architecture (arm64)
-./build.sh intel        # Cross-compile for Intel macOS (requires x86_64-apple-darwin target)
-./build.sh universal    # Create macOS universal binary (arm64 + x64)
-./build.sh linux        # Cross-compile for Linux x64 (requires toolchain)
-./build.sh all          # Build all supported targets (macOS + Linux)
-```
-
-**Windows:**
-
-```powershell
-.\build.ps1
-# Produces sqlfmt-windows-x64.exe
-```
-
-### Prerequisites for Linux cross-compilation on macOS
-
-```bash
-# Add the Rust target
-rustup target add x86_64-apple-darwin x86_64-unknown-linux-gnu
-
-# Install the Linux GCC cross-compiler
-brew tap messense/macos-cross-toolchains
-brew install x86_64-unknown-linux-gnu
-```
-
-The build script checks for these dependencies and prints helpful error messages if anything is missing.
 
 ## Usage
 
@@ -283,3 +251,38 @@ cargo test
 Test inputs and expected outputs live in the [`tests/data/`](tests/data) directory. Each test case has an `.input.sql` file and a matching `.golden.sql` file with the expected formatted output. To add a new test, create a pair of files and add a test function in [`tests/integration_test.rs`](tests/integration_test.rs).
 
 
+
+## Development
+
+This is a Rust project. Build and install the latest local source:
+
+**macOS / Linux:**
+
+```bash
+bash release.sh
+```
+
+**Windows:**
+
+```powershell
+.\release.ps1
+```
+
+To just test locally without releasing:
+
+```bash
+cargo build --release
+cp target/release/sqlfmt ~/.local/bin/   # macOS/Linux
+# or
+Copy-Item .\target\release\sqlfmt.exe ~\bin\   # Windows
+```
+
+### Release workflow
+
+Run on each machine after pushing code:
+
+1. **macOS (first):** `bash release.sh` — bumps version, creates tag and GitHub Release, uploads macOS binary
+2. **Linux:** `bash release.sh` — uploads Linux binary to existing release
+3. **Windows:** `.\release.ps1` — uploads Windows binary to existing release
+
+Add `--draft` / `-Draft` to create the release as a draft.
